@@ -163,24 +163,55 @@ function getProductImage(drug) {
 }
 
 function renderSearchResults(results) {
+  const interactKey = '이 약을 사용하는 동안 주의해야 할 약 또는 음식은 무엇입니까?';
   searchResults.innerHTML = results.map((drug, i) => {
     const name = drug['품목명'] || '-';
     const cls = drug['분류명'] || '-';
     const ing = getIngredient(drug).substring(0, 80);
     const imgSrc = getProductImage(drug);
+    const interact = drug[interactKey] || '';
+    const hasInteract = interact.trim() && interact.trim() !== '-';
+    const interactLink = hasInteract
+      ? `<span class="interaction-link" data-id="${i}" role="button" tabindex="0">상호작용 확인</span>`
+      : '';
     return `
-      <div class="drug-card" data-id="${i}">
-        <img class="drug-card-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
-        <div class="drug-card-body">
-          <h3>${escapeHtml(name)}</h3>
-          <p>분류: ${escapeHtml(cls)}</p>
-          <p>주성분: ${escapeHtml(ing)}${getIngredient(drug).length > 80 ? '...' : ''}</p>
+      <div class="drug-card-wrap">
+        <div class="drug-card" data-id="${i}">
+          <img class="drug-card-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
+          <div class="drug-card-body">
+            <h3>${escapeHtml(name)} ${interactLink}</h3>
+            <p>분류: ${escapeHtml(cls)}</p>
+            <p>주성분: ${escapeHtml(ing)}${getIngredient(drug).length > 80 ? '...' : ''}</p>
+          </div>
         </div>
+        ${hasInteract ? `<div class="interaction-panel" id="interaction-panel-${i}" data-id="${i}" hidden><h4>이 약을 사용하는 동안 주의해야 할 약 또는 음식</h4><p>${escapeHtml(interact)}</p></div>` : ''}
       </div>
     `;
   }).join('');
   document.querySelectorAll('.drug-card').forEach(card => {
     card.addEventListener('click', () => showDetail(results[parseInt(card.dataset.id)]));
+  });
+  document.querySelectorAll('.interaction-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = link.dataset.id;
+      const panel = document.getElementById(`interaction-panel-${id}`);
+      if (panel) {
+        const isHidden = panel.hasAttribute('hidden');
+        document.querySelectorAll('.interaction-panel').forEach(p => p.setAttribute('hidden', ''));
+        document.querySelectorAll('.interaction-link').forEach(l => l.classList.remove('active'));
+        if (isHidden) {
+          panel.removeAttribute('hidden');
+          link.classList.add('active');
+        }
+      }
+    });
+    link.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        link.click();
+      }
+    });
   });
 }
 

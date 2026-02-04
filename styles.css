@@ -291,6 +291,40 @@ body {
 
 .drug-card.pill-card { flex-direction: column; }
 
+.drug-card-wrap { margin-bottom: 0.5rem; }
+.drug-card-wrap:last-child { margin-bottom: 0; }
+
+.interaction-link {
+  font-size: 0.8rem;
+  color: var(--primary);
+  cursor: pointer;
+  margin-left: 0.5rem;
+  text-decoration: underline;
+}
+.interaction-link:hover,
+.interaction-link.active { color: var(--primary-dark, #2563eb); }
+
+.interaction-panel {
+  margin-top: 0.5rem;
+  margin-left: 0.25rem;
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--primary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.interaction-panel h4 {
+  font-size: 0.95rem;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+}
+.interaction-panel p {
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
 .detail-content {
   background: var(--card);
   padding: 1.5rem;
