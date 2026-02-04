@@ -1,4 +1,4 @@
-const API_BASE = typeof CHAT_API_URL !== 'undefined' ? CHAT_API_URL : 'http://localhost:3001';
+const API_BASE = ''; // Vercel 배포 시 같은 도메인, 로컬 시 상대경로 사용
 
 // DOM
 const views = document.querySelectorAll('.view');
@@ -303,7 +303,7 @@ const chatbotMessages = document.getElementById('chatbotMessages');
 const chatInput = document.getElementById('chatInput');
 const chatSendBtn = document.getElementById('chatSendBtn');
 
-const CHAT_API_BASE = typeof CHAT_API_URL !== 'undefined' ? CHAT_API_URL : 'http://localhost:3001';
+const CHAT_API_BASE = '';
 
 chatbotToggle.addEventListener('click', () => chatbotPanel.classList.add('open'));
 chatbotClose.addEventListener('click', () => chatbotPanel.classList.remove('open'));

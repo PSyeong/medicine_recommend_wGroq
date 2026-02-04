@@ -34,6 +34,21 @@ npm start
 
 브라우저에서 `http://localhost:3001` 접속. 챗봇이 Groq를 사용합니다.
 
+### 3) Vercel 배포
+
+```bash
+# Vercel CLI 설치 (최초 1회)
+npm i -g vercel
+
+# 배포
+vercel
+```
+
+또는 [vercel.com](https://vercel.com)에서 GitHub 저장소 연결 후 자동 배포.
+
+**환경 변수 설정 (필수):** Vercel 대시보드 → 프로젝트 → Settings → Environment Variables
+- `GROQ_API_KEY`: Groq API 키
+
 ## 기술 스택
 
 - HTML5, CSS3, Vanilla JavaScript

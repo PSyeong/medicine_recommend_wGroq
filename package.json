@@ -2,7 +2,6 @@
   "name": "medicine-recommend",
   "version": "1.0.0",
   "description": "의약품 정보 앱 + LLM 챗봇",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
