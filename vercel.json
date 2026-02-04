@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "node -e \"const fs=require('fs');fs.mkdirSync('public',{recursive:true});['index.html','app.js','styles.css','data.js'].forEach(f=>fs.copyFileSync(f,'public/'+f))\"",
+  "outputDirectory": "public",
+  "framework": null,
   "rewrites": [
     { "source": "/", "destination": "/index.html" }
   ]
