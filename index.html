@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>의약품 정보 | Medicine Info</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="logo">💊 의약품 정보</h1>
+      <nav class="nav">
+        <button class="nav-btn active" data-view="search">검색</button>
+        <button class="nav-btn" data-view="interaction">상호작용</button>
+        <button class="nav-btn" data-view="pill">알약 식별</button>
+        <button class="nav-btn" data-view="medications">내 복용약</button>
+      </nav>
+    </header>
+
+    <main class="main">
+      <!-- 검색 뷰 -->
+      <section class="view view-search active" id="viewSearch">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="품목명, 분류(해열제·진해거담제 등), 성분명 검색" autocomplete="off">
+          <button class="btn btn-primary" id="searchBtn">검색</button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+      </section>
+
+      <!-- 상세 정보 뷰 -->
+      <section class="view view-detail hidden" id="viewDetail">
+        <button class="back-btn" id="backBtn">← 목록으로</button>
+        <div class="detail-content" id="detailContent"></div>
+      </section>
+
+      <!-- 상호작용 검사 뷰 -->
+      <section class="view view-interaction hidden" id="viewInteraction">
+        <h2>약물 상호작용 검사</h2>
+        <p class="subtitle">복용 중인 약을 추가하고 상호작용을 확인하세요</p>
+        <div class="interaction-input">
+          <input type="text" id="interactionDrugInput" placeholder="의약품명 입력">
+          <button class="btn btn-primary" id="addDrugBtn">추가</button>
+        </div>
+        <div class="drug-list" id="interactionDrugList"></div>
+        <button class="btn btn-secondary" id="checkInteractionBtn">상호작용 검사</button>
+        <div class="interaction-result" id="interactionResult"></div>
+      </section>
+
+      <!-- 알약 식별 뷰 -->
+      <section class="view view-pill hidden" id="viewPill">
+        <h2>알약 식별</h2>
+        <p class="subtitle">알약의 모양, 색상, 각인을 입력하세요</p>
+        <div class="pill-form">
+          <div class="form-row">
+          <div class="form-group">
+            <label>모양</label>
+            <select id="pillShape">
+              <option value="">선택</option>
+              <option value="round">원형</option>
+              <option value="oval">타원형</option>
+              <option value="capsule">캡슐형</option>
+              <option value="rectangle">사각형</option>
+              <option value="diamond">다이아몬드</option>
+              <option value="hexagon">육각형</option>
+              <option value="octagon">팔각형</option>
+              <option value="triangle">삼각형</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>색상</label>
+            <select id="pillColor">
+              <option value="">선택</option>
+              <option value="white">흰색</option>
+              <option value="yellow">노란색</option>
+              <option value="orange">주황색</option>
+              <option value="red">빨간색</option>
+              <option value="pink">분홍색</option>
+              <option value="blue">파란색</option>
+              <option value="green">초록색</option>
+              <option value="brown">갈색</option>
+              <option value="gray">회색</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>각인 (문자/숫자)</label>
+            <input type="text" id="pillImprint" placeholder="예: G4, 500">
+          </div>
+          </div>
+          <button class="btn btn-primary" id="identifyPillBtn">알약 찾기</button>
+        </div>
+        <div class="pill-results" id="pillResults"></div>
+      </section>
+
+      <!-- 내 복용약 뷰 -->
+      <section class="view view-medications hidden" id="viewMedications">
+        <h2>내 복용 약 목록</h2>
+        <p class="subtitle">저장된 약으로 상호작용·알레르기를 검사할 수 있습니다</p>
+        <div class="medication-input">
+          <input type="text" id="medicationInput" placeholder="의약품명 입력">
+          <button class="btn btn-primary" id="addMedicationBtn">추가</button>
+        </div>
+        <div class="medication-list" id="medicationList"></div>
+        <div class="medication-actions">
+          <button class="btn btn-secondary" id="checkAllergyBtn">알레르기 검사</button>
+          <button class="btn btn-secondary" id="checkMyInteractionsBtn">상호작용 검사</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>⚠️ 본 정보는 참고용이며, 의료 상담을 대체하지 않습니다. 전문가와 상담하세요.</p>
+    </footer>
+  </div>
+
+  <!-- 우측 챗봇 -->
+  <div class="chatbot-container" id="chatbotContainer">
+    <div class="chatbot-panel" id="chatbotPanel">
+      <div class="chatbot-header">
+        <h3>💬 의약품 상담 챗봇</h3>
+        <button class="chatbot-close" id="chatbotClose" aria-label="챗봇 닫기">×</button>
+      </div>
+      <div class="chatbot-messages" id="chatbotMessages">
+        <div class="chat-msg bot">
+          <p>안녕하세요. 의약품에 대해 궁금한 점을 물어보세요. (예: 타이레놀 부작용, 약 상호작용 등)</p>
+        </div>
+      </div>
+      <div class="chatbot-input-area">
+        <input type="text" id="chatInput" placeholder="메시지를 입력하세요..." autocomplete="off">
+        <button class="chat-send-btn" id="chatSendBtn" aria-label="전송">보내기</button>
+      </div>
+    </div>
+    <button class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기">💬</button>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
