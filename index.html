@@ -23,11 +23,48 @@
     <main class="main">
       <!-- 검색 뷰 -->
       <section class="view view-search active" id="viewSearch">
-        <div class="search-box">
-          <input type="text" id="searchInput" placeholder="품목명, 분류(해열제·진해거담제 등), 성분명 검색" autocomplete="off">
-          <button class="btn btn-primary" id="searchBtn">검색</button>
+        <div class="search-layout">
+          <div class="icon-panel">
+            <h3 class="icon-panel-title">📍 어디가 불편하신가요?</h3>
+            <p class="icon-panel-hint">아픈 부위를 클릭해보세요</p>
+            <div class="human-icon-wrap">
+              <svg class="human-icon" viewBox="0 0 120 200" xmlns="http://www.w3.org/2000/svg">
+                <g class="body-part" data-category="머리" title="머리">
+                  <circle cx="60" cy="30" r="24" fill="currentColor" class="icon-shape"/>
+                </g>
+                <g class="body-part" data-category="가슴" title="가슴">
+                  <rect x="38" y="56" width="44" height="38" rx="6" fill="currentColor" class="icon-shape"/>
+                </g>
+                <g class="body-part" data-category="배" title="배">
+                  <rect x="40" y="96" width="40" height="36" rx="6" fill="currentColor" class="icon-shape"/>
+                </g>
+                <g class="body-part" data-categories="관절,피부" title="팔·다리">
+                  <path d="M38 72 L15 95 M82 72 L105 95 M52 132 L40 185 M68 132 L80 185" stroke="currentColor" stroke-width="14" stroke-linecap="round" fill="none" class="icon-shape icon-limb"/>
+                </g>
+              </svg>
+            </div>
+            <div class="icon-symptoms" id="iconSymptoms"></div>
+          </div>
+          <div class="search-panel">
+            <div class="search-box">
+              <input type="text" id="searchInput" placeholder="예: 소화불량, 열이 나요" autocomplete="off">
+              <button class="btn btn-primary" id="searchBtn">🔍 검색</button>
+            </div>
+            <p class="search-hint">왼쪽 그림을 클릭하거나 증상을 입력하세요.</p>
+            <div class="symptom-search">
+              <div class="category-row">
+                <span class="symptom-label">증상별 검색:</span>
+                <button class="category-btn" data-category="머리">머리</button>
+                <button class="category-btn" data-category="가슴">가슴</button>
+                <button class="category-btn" data-category="배">배</button>
+                <button class="category-btn" data-category="관절">관절</button>
+                <button class="category-btn" data-category="피부">피부</button>
+              </div>
+              <div class="symptom-row" id="symptomRow"></div>
+            </div>
+            <div class="search-results" id="searchResults"></div>
+          </div>
         </div>
-        <div class="search-results" id="searchResults"></div>
       </section>
 
       <!-- 상세 정보 뷰 -->

@@ -27,6 +27,103 @@ navBtns.forEach(btn => {
   });
 });
 
+// 카테고리별 증상 매핑
+const CATEGORY_SYMPTOMS = {
+  '머리': ['두통', '발열'],
+  '가슴': ['기침', '가래'],
+  '배': ['복통', '속쓰림', '소화불량', '설사', '구토'],
+  '관절': ['관절통', '근육통', '몸살'],
+  '피부': ['염증', '피부염', '습진'],
+};
+
+const symptomRow = document.getElementById('symptomRow');
+const iconSymptoms = document.getElementById('iconSymptoms');
+const openedCategories = new Set();
+const selectedSymptoms = new Set();
+
+function getSymptomsByCategory(cat) {
+  return CATEGORY_SYMPTOMS[cat] || [];
+}
+
+function hasSelectedInCategory(cat) {
+  return getSymptomsByCategory(cat).some(s => selectedSymptoms.has(s));
+}
+
+function updateCategoryHighlights() {
+  document.querySelectorAll('.category-btn').forEach(btn => {
+    const cat = btn.dataset.category;
+    btn.classList.toggle('active', hasSelectedInCategory(cat));
+  });
+  document.querySelectorAll('.body-part').forEach(el => {
+    const cats = el.dataset.categories ? el.dataset.categories.split(',') : [el.dataset.category];
+    const active = cats.some(c => openedCategories.has(c) || hasSelectedInCategory(c));
+    el.classList.toggle('active', active);
+  });
+}
+
+function runSymptomSearch() {
+  const query = [...selectedSymptoms].join(' ');
+  searchInput.value = query;
+  if (query) searchDrugs(query);
+}
+
+function bindSymptomClick(container) {
+  if (!container) return;
+  container.querySelectorAll('.symptom-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sym = btn.dataset.symptom;
+      if (selectedSymptoms.has(sym)) {
+        selectedSymptoms.delete(sym);
+      } else {
+        selectedSymptoms.add(sym);
+      }
+      btn.classList.toggle('active', selectedSymptoms.has(sym));
+      updateCategoryHighlights();
+      runSymptomSearch();
+    });
+  });
+}
+
+function renderSymptomButtons() {
+  const allSymptoms = [];
+  [...openedCategories].sort().forEach(cat => {
+    getSymptomsByCategory(cat).forEach(s => {
+      if (!allSymptoms.includes(s)) allSymptoms.push(s);
+    });
+  });
+  const html = allSymptoms.map(s => {
+    const active = selectedSymptoms.has(s) ? ' active' : '';
+    return `<button class="symptom-btn${active}" data-symptom="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
+  }).join('');
+  symptomRow.innerHTML = html;
+  iconSymptoms.innerHTML = html;
+  bindSymptomClick(symptomRow);
+  bindSymptomClick(iconSymptoms);
+  updateCategoryHighlights();
+}
+
+function toggleCategory(cat) {
+  if (openedCategories.has(cat)) {
+    openedCategories.delete(cat);
+    getSymptomsByCategory(cat).forEach(s => selectedSymptoms.delete(s));
+  } else {
+    openedCategories.add(cat);
+  }
+  renderSymptomButtons();
+  runSymptomSearch();
+}
+
+document.querySelectorAll('.category-btn').forEach(btn => {
+  btn.addEventListener('click', () => toggleCategory(btn.dataset.category));
+});
+
+document.querySelectorAll('.body-part').forEach(el => {
+  el.addEventListener('click', () => {
+    const cats = el.dataset.categories ? el.dataset.categories.split(',') : [el.dataset.category];
+    cats.forEach(c => toggleCategory(c));
+  });
+});
+
 // Search - CSV 의약품 허가정보 기반
 async function searchDrugs(query) {
   if (!query.trim()) return;
@@ -48,16 +145,37 @@ function getIngredient(drug) {
   return drug['주성분_x'] || drug['주성분'] || '-';
 }
 
+const DEFAULT_IMAGE = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22120%22%20height%3D%22120%22%20viewBox%3D%220%200%20120%20120%22%3E%3Crect%20width%3D%22120%22%20height%3D%22120%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Cellipse%20cx%3D%2260%22%20cy%3D%2260%22%20rx%3D%2235%22%20ry%3D%2218%22%20fill%3D%22%23e2e8f0%22%20stroke%3D%22%23cbd5e1%22%20stroke-width%3D%221%22%2F%3E%3Ctext%20x%3D%2260%22%20y%3D%2295%22%20text-anchor%3D%22middle%22%20fill%3D%22%2394a3b8%22%20font-size%3D%2211%22%3E%EC%9D%B4%EB%AF%B8%EC%A7%80%20%EC%97%86%EC%9D%8C%3C%2Ftext%3E%3C%2Fsvg%3E';
+
+function safeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function getProductImage(drug) {
+  const url = (drug['큰 제품 이미지'] || drug['큰제품이미지'] || '').trim();
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    if (url.includes('nedrug.mfds.go.kr')) {
+      return `${API_BASE || ''}/api/image?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  }
+  return DEFAULT_IMAGE;
+}
+
 function renderSearchResults(results) {
   searchResults.innerHTML = results.map((drug, i) => {
     const name = drug['품목명'] || '-';
     const cls = drug['분류명'] || '-';
     const ing = getIngredient(drug).substring(0, 80);
+    const imgSrc = getProductImage(drug);
     return `
       <div class="drug-card" data-id="${i}">
-        <h3>${escapeHtml(name)}</h3>
-        <p>분류: ${escapeHtml(cls)}</p>
-        <p>주성분: ${escapeHtml(ing)}${getIngredient(drug).length > 80 ? '...' : ''}</p>
+        <img class="drug-card-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
+        <div class="drug-card-body">
+          <h3>${escapeHtml(name)}</h3>
+          <p>분류: ${escapeHtml(cls)}</p>
+          <p>주성분: ${escapeHtml(ing)}${getIngredient(drug).length > 80 ? '...' : ''}</p>
+        </div>
       </div>
     `;
   }).join('');
@@ -87,6 +205,7 @@ function showDetail(drug) {
   const sideEffect = drug['이 약은 어떤 이상반응이 나타날 수 있습니까?'] || '';
   const storage = drug['이 약은 어떻게 보관해야 합니까?'] || '';
 
+  const imgSrc = getProductImage(drug);
   const sections = [
     { title: '기본 정보', items: [
       ['품목명', name],
@@ -105,7 +224,7 @@ function showDetail(drug) {
     ...(storage ? [{ title: '보관방법', text: storage }] : []),
   ];
 
-  detailContent.innerHTML = sections.map(s => {
+  detailContent.innerHTML = `<div class="detail-image-wrap"><img class="detail-product-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}"></div>` + sections.map(s => {
     if (s.items) {
       return `<div class="detail-section"><h3>${s.title}</h3>${s.items.map(([k, v]) => v ? `<p><strong>${k}:</strong> ${escapeHtml(String(v))}</p>` : '').join('')}</div>`;
     }

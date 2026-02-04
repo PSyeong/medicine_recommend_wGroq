@@ -26,17 +26,19 @@ function searchMedicine(query, limit = 15) {
   const terms = q.split(/\s+/).filter(t => t.length >= 1);
   const results = [];
 
-  const ingKey = '주성분_x'; // medicine_data.csv 컬럼명
+  const ingKey = '주성분_x';
+  const effKey = '이 약의 효능은 무엇입니까?';
   for (const row of medicineData) {
     const 품목명 = (row['품목명'] || '').toLowerCase();
     const 분류명 = (row['분류명'] || '').toLowerCase();
     const 주성분 = (row[ingKey] || row['주성분'] || '').toLowerCase();
-    const text = `${품목명} ${분류명} ${주성분}`;
+    const 효능 = (row[effKey] || '').toLowerCase(); // 해열, 기침, 가래, 천식 등 증상
 
     let score = 0;
     for (const term of terms) {
-      if (품목명.includes(term)) score += 3;
-      if (분류명.includes(term)) score += 2;
+      if (품목명.includes(term)) score += 4;
+      if (분류명.includes(term)) score += 3;
+      if (효능.includes(term)) score += 3;  // 증상(효능)으로 검색
       if (주성분.includes(term)) score += 1;
     }
     if (score > 0) {

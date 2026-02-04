@@ -22,7 +22,7 @@ body {
 }
 
 .app {
-  max-width: 720px;
+  max-width: 900px;
   margin: 0 auto;
   min-height: 100vh;
   display: flex;
@@ -65,14 +65,151 @@ body {
 
 .main { flex: 1; }
 
-.view { display: none; }
+.view { display: none; overflow-x: hidden; }
 .view.active { display: block; }
 .view.hidden { display: none !important; }
+
+.search-layout {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.icon-panel {
+  flex: 0 0 200px;
+  background: var(--card);
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.icon-panel-title {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.icon-panel-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.human-icon-wrap {
+  margin-bottom: 1rem;
+}
+
+.human-icon {
+  width: 100%;
+  max-width: 140px;
+  height: auto;
+  color: #94a3b8;
+  display: block;
+  margin: 0 auto;
+}
+
+.body-part {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.body-part:hover,
+.body-part.active {
+  color: var(--primary);
+}
+
+.icon-symptoms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 2rem;
+}
+
+.search-panel {
+  flex: 1;
+  min-width: 280px;
+}
+
+.search-hint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
 
 .search-box {
   display: flex;
   gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.symptom-search {
   margin-bottom: 1rem;
+}
+
+.symptom-search .category-row,
+.symptom-search .symptom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.symptom-search .symptom-row {
+  min-height: 2.25rem;
+  padding-left: 0.25rem;
+}
+
+.symptom-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+}
+
+.category-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.category-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.category-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.symptom-btn {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.symptom-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.symptom-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
 }
 
 .search-box input, .interaction-input input, .medication-input input, .pill-form input {
@@ -112,28 +249,68 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  overflow-x: hidden;
 }
 
 .drug-card {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
   background: var(--card);
   padding: 1rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 0;
+  overflow: hidden;
 }
+
+.drug-card-img {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.drug-card-body { flex: 1; min-width: 0; }
 
 .drug-card:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,0.15); }
 
 .drug-card h3 { font-size: 1.1rem; margin-bottom: 0.25rem; }
-.drug-card p { font-size: 0.9rem; color: var(--text-muted); }
+.drug-card p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
 .drug-card .pill-meta { font-size: 0.85rem; color: var(--primary); }
+
+.drug-card.pill-card { flex-direction: column; }
 
 .detail-content {
   background: var(--card);
   padding: 1.5rem;
   border-radius: var(--radius);
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.detail-image-wrap {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.detail-product-img {
+  max-width: 180px;
+  max-height: 180px;
+  object-fit: contain;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 0.5rem;
 }
 
 .detail-section {
@@ -148,7 +325,13 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.detail-section p { font-size: 0.95rem; line-height: 1.6; }
+.detail-section p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
 
 .interaction-input, .medication-input { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 
