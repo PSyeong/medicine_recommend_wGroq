@@ -17,6 +17,125 @@ const viewDetail = document.getElementById('viewDetail');
 const detailContent = document.getElementById('detailContent');
 const backBtn = document.getElementById('backBtn');
 
+// 라우팅: 해시 + History API로 뒤로가기 지원
+const ROUTES = ['search', 'interaction', 'pill', 'pharmacy', 'notebook', 'detail'];
+const VIEW_ID_MAP = {
+  search: 'viewSearch',
+  interaction: 'viewInteraction',
+  pill: 'viewPill',
+  pharmacy: 'viewPharmacy',
+  notebook: 'viewNotebook',
+  detail: 'viewDetail',
+};
+
+function getRouteFromHash() {
+  const hash = (location.hash || '#search').replace(/^#/, '') || 'search';
+  const [view, ...rest] = hash.split('/');
+  const name = rest.length ? decodeURIComponent(rest.join('/')) : null;
+  if (ROUTES.includes(view)) return { view, name };
+  return { view: 'search', name: null };
+}
+
+function getRouteFromState() {
+  const s = history.state;
+  if (s && s.view === 'detail' && s.drug) return { view: 'detail', drug: s.drug };
+  return null;
+}
+
+function applyView(viewName) {
+  const viewId = VIEW_ID_MAP[viewName];
+  if (!viewId) return;
+  navBtns.forEach(b => {
+    b.classList.toggle('active', b.dataset.view === viewName);
+  });
+  views.forEach(v => {
+    const on = v.id === viewId;
+    v.classList.toggle('active', on);
+    v.classList.toggle('hidden', !on);
+  });
+}
+
+function pushRoute(viewName, state) {
+  const hash = viewName === 'detail' && state && state.drug && state.drug['품목명']
+    ? '#detail/' + encodeURIComponent(state.drug['품목명'])
+    : '#' + viewName;
+  history.pushState(state || { view: viewName }, '', hash);
+}
+
+function replaceRoute(viewName, state) {
+  const hash = viewName === 'detail' && state && state.drug && state.drug['품목명']
+    ? '#detail/' + encodeURIComponent(state.drug['품목명'])
+    : '#' + viewName;
+  history.replaceState(state || { view: viewName }, '', hash);
+}
+
+function showViewByRoute(viewName, stateOrName) {
+  if (viewName === 'detail') {
+    if (stateOrName && stateOrName.drug) {
+      renderDetailContent(stateOrName.drug);
+      applyView('detail');
+      return;
+    }
+    if (stateOrName && typeof stateOrName === 'string') {
+      fetch(`${API_BASE}/api/search?q=${encodeURIComponent(stateOrName)}&limit=1`)
+        .then(r => r.json())
+        .then(arr => {
+          if (Array.isArray(arr) && arr[0]) {
+            const drug = arr[0];
+            replaceRoute('search'); // 뒤로가기 시 검색으로 돌아가도록 한 단계 넣음
+            pushRoute('detail', { view: 'detail', drug });
+            renderDetailContent(drug);
+            applyView('detail');
+          } else {
+            replaceRoute('search');
+            applyView('search');
+          }
+        })
+        .catch(() => { replaceRoute('search'); applyView('search'); });
+      return;
+    }
+  }
+  applyView(viewName);
+}
+
+// 초기 라우트 및 popstate
+function initRoute() {
+  const fromState = getRouteFromState();
+  if (fromState && fromState.view === 'detail' && fromState.drug) {
+    showViewByRoute('detail', fromState);
+    return;
+  }
+  const { view, name } = getRouteFromHash();
+  if (view === 'detail' && name) {
+    showViewByRoute('detail', name);
+    return;
+  }
+  if (view === 'detail') {
+    replaceRoute('search');
+    applyView('search');
+    return;
+  }
+  applyView(view);
+}
+
+window.addEventListener('popstate', (e) => {
+  const s = e.state;
+  if (s && s.view === 'detail' && s.drug) {
+    showViewByRoute('detail', s);
+    return;
+  }
+  if (s && ROUTES.includes(s.view)) {
+    applyView(s.view);
+    return;
+  }
+  const { view, name } = getRouteFromHash();
+  if (view === 'detail' && name) {
+    showViewByRoute('detail', name);
+    return;
+  }
+  applyView(view);
+});
+
 // 카테고리별 증상 매핑 (증상별 검색)
 const CATEGORY_SYMPTOMS = {
   '머리': ['두통', '발열'],
@@ -156,20 +275,12 @@ document.querySelectorAll('.body-part')?.forEach(part => {
   });
 });
 
-// Navigation
+// Navigation: 라우트 푸시 후 화면 전환 (뒤로가기 가능)
 navBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     const viewName = btn.dataset.view;
-    navBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    views.forEach(v => {
-      v.classList.remove('active');
-      v.classList.add('hidden');
-      if (v.id === `view${viewName.charAt(0).toUpperCase() + viewName.slice(1)}`) {
-        v.classList.add('active');
-        v.classList.remove('hidden');
-      }
-    });
+    pushRoute(viewName);
+    applyView(viewName);
   });
 });
 
@@ -267,7 +378,7 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
-function showDetail(drug) {
+function renderDetailContent(drug) {
   const name = drug['품목명'] || '알 수 없음';
   const cls = drug['분류명'] || '-';
   const ing = getIngredient(drug);
@@ -307,18 +418,16 @@ function showDetail(drug) {
     }
     return `<div class="detail-section"><h3>${s.title}</h3><p>${escapeHtml(s.text)}</p></div>`;
   }).join('') + '<p class="disclaimer">※ 본 정보는 의약품 허가정보 공공데이터를 기반으로 합니다. 참고용이며, 반드시 의사나 약사와 상담하세요.</p>';
-  document.getElementById('viewSearch').classList.remove('active');
-  document.getElementById('viewSearch').classList.add('hidden');
-  viewDetail.classList.add('active');
-  viewDetail.classList.remove('hidden');
 }
 
-backBtn.addEventListener('click', () => {
-  viewDetail.classList.remove('active');
-  viewDetail.classList.add('hidden');
-  document.getElementById('viewSearch').classList.add('active');
-  document.getElementById('viewSearch').classList.remove('hidden');
-});
+function showDetail(drug) {
+  pushRoute('detail', { view: 'detail', drug });
+  renderDetailContent(drug);
+  applyView('detail');
+}
+
+// 상세 화면 "← 목록으로" = 브라우저 뒤로가기 (이전 화면 복원)
+backBtn.addEventListener('click', () => history.back());
 
 searchBtn.addEventListener('click', () => {
   clearSymptomAndCategoryState();
@@ -1318,4 +1427,10 @@ function initNotebook() {
     renderNotebookMedList();
   });
 }
+
+// 초기 URL에 따라 화면 복원 (뒤로가기 지원)
+if (!location.hash || location.hash === '#') {
+  replaceRoute('search');
+}
+initRoute();
 initNotebook();
