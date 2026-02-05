@@ -710,8 +710,17 @@ async function sendToLLM(messages) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages }),
     });
-    if (!res.ok) throw new Error(await res.text() || res.statusText);
-    const data = await res.json();
+    const body = await res.text();
+    if (!res.ok) {
+      let errMsg = body;
+      try {
+        const j = JSON.parse(body);
+        errMsg = j.error || j.message || body;
+      } catch (_) {}
+      console.error('LLM API 오류:', res.status, errMsg);
+      return null;
+    }
+    const data = JSON.parse(body);
     return data.reply || data.message || data.content || '응답을 생성할 수 없습니다.';
   } catch (err) {
     console.error('LLM API 오류:', err);

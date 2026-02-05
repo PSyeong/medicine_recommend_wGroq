@@ -17,28 +17,12 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 
 const QUOTA_FALLBACK = '현재 AI 사용 한도에 도달했습니다. 잠시(약 1분) 후 다시 시도해 주세요. 의약품 검색은 상단 검색창을 이용해 보세요. ⚠️ 본 정보는 참고용이며, 반드시 의사나 약사와 상담하세요.';
 
-const BASE_SYSTEM = `너는 일반의약품 정보를 바탕으로 사용자에게 관련 가능성이 높은 의약품을 추천하고, 해당 의약품의 공식 정보를 요약해 함께 제공하는 도우미다. 반드시 다음 규칙을 따른다.
+const CHAT_SYSTEM_PROMPT = `너는 의료·건강 정보에 대해 일상적인 질문에 답하는 친절한 도우미다.
 
-[규칙 1: 추천 판단 기준]
-- 추천 여부 판단은 오직 다음 정보만 근거로 한다.
-  1) 품목명
-  2) 분류명
-  3) 이 약의 효능은 무엇입니까?
-- 사용법, 주의사항, 이상반응, 보관법 정보는 추천 여부 판단에는 사용하지 않는다.
-
-[규칙 2: 부가 정보 출력]
-- 추천 결과를 출력할 때, 아래 정보가 존재한다면 간략히 요약해 함께 제공한다.
-  - 이 약을 사용하기 전에 반드시 알아야 할 내용
-  - 이 약의 사용상 주의사항
-  - 이 약을 사용하는 동안 주의해야 할 약 또는 음식
-- 각 항목은 1~2문장으로 요약한다.
-- 정보가 비어 있거나 없는 항목은 출력하지 않는다.
-
-[규칙 3: 안전]
-- 진단, 처방, 복용량 결정은 하지 않는다.
-- 모든 답변은 정보 제공 목적임을 유지한다.
-
-항상 JSON 형식으로만 출력한다. 예시: {"추천의약품":[{"품목명":"...","분류명":"...","효능요약":"...","사용법":"...","주의사항":"..."}],"안내":"본 정보는 참고용이며 반드시 의사나 약사와 상담하세요."}`;
+- 사용자의 질문(증상, 약, 건강 습관, 병원·약국 이용 등)에 맞춰 짧고 이해하기 쉽게 답한다.
+- 진단·처방·복용량 결정은 하지 않고, 참고 정보만 제공한다.
+- 필요하면 "의사·약사와 상담하세요" 같은 안내를 문장 끝에 자연스럽게 넣는다.
+- JSON이나 특정 형식을 강제하지 말고, 자연스러운 문장으로만 답한다.`;
 
 async function callGroq(messages) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -58,8 +42,12 @@ async function callGroq(messages) {
   const text = await res.text();
   if (!res.ok) {
     const is429 = res.status === 429 || text.includes('rate_limit') || text.includes('quota');
-    if (is429) {
-      return QUOTA_FALLBACK;
+    if (is429) return QUOTA_FALLBACK;
+    // API 키 오류, 접근 거부, 네트워크 제한 등 → 사용자용 안내 반환 (500 대신 채팅 연속 가능)
+    const isAccessDenied = res.status === 401 || res.status === 403 || /access denied|invalid.*api|network settings/i.test(text);
+    if (isAccessDenied) {
+      console.error('Groq API 접근 거부:', text);
+      return 'AI 연결에 제한이 있어 기본 안내로 답변드립니다. Groq API 키(.env의 GROQ_API_KEY)와 네트워크(방화벽·VPN)를 확인해 주세요. ⚠️ 본 정보는 참고용이며, 반드시 의사나 약사와 상담하세요.';
     }
     throw new Error(text || res.statusText);
   }
@@ -85,33 +73,25 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const userMsg = messages.filter(m => m.role === 'user').pop();
-    const userText = userMsg?.content || '';
-    const hits = searchMedicine(userText, 15);
-    const contextText = formatForContext(hits);
-
-    const dataSection = contextText
-      ? `\n\n[의약품 허가정보 데이터]\n${contextText}\n\n위 데이터만 사용하여 사용자 질문에 맞는 의약품을 추천하고, 규칙에 따라 JSON으로 출력하세요.`
-      : '';
-    const systemContent = BASE_SYSTEM + dataSection;
-
     const enhancedMessages = messages
       .filter(m => m.role !== 'system')
       .reduce((acc, m) => {
-        if (acc.length === 0) acc.push({ role: 'system', content: systemContent });
+        if (acc.length === 0) acc.push({ role: 'system', content: CHAT_SYSTEM_PROMPT });
         acc.push(m);
         return acc;
       }, []);
     if (enhancedMessages[0]?.role !== 'system') {
-      enhancedMessages.unshift({ role: 'system', content: systemContent });
+      enhancedMessages.unshift({ role: 'system', content: CHAT_SYSTEM_PROMPT });
     }
 
     const reply = await callGroq(enhancedMessages);
     res.json({ reply });
   } catch (err) {
     console.error('Groq API 오류:', err.message);
+    const friendly = 'LLM 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
     res.status(500).json({
-      error: err.message || 'LLM 처리 중 오류가 발생했습니다.',
+      error: friendly,
+      detail: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
   }
 });

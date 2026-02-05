@@ -1,34 +1,19 @@
-const { loadCSV, searchMedicine, formatForContext } = require('../medicineSearch');
-
-loadCSV();
-
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 
-const QUOTA_FALLBACK = '현재 AI 사용 한도에 도달했습니다. 잠시(약 1분) 후 다시 시도해 주세요. 의약품 검색은 상단 검색창을 이용해 보세요. ⚠️ 본 정보는 참고용이며, 반드시 의사나 약사와 상담하세요.';
+const QUOTA_FALLBACK = '현재 AI 사용 한도에 도달했습니다. 잠시(약 1분) 후 다시 시도해 주세요. ⚠️ 본 정보는 참고용이며, 반드시 의사나 약사와 상담하세요.';
 
-const BASE_SYSTEM = `너는 일반의약품 정보를 바탕으로 사용자에게 관련 가능성이 높은 의약품을 추천하고, 해당 의약품의 공식 정보를 요약해 함께 제공하는 도우미다. 반드시 다음 규칙을 따른다.
+const SYSTEM_PROMPT = `당신은 의료·건강 정보에 대해 일상적인 질문에 답해 주는 친절한 도우미입니다.
 
-[규칙 1: 추천 판단 기준]
-- 추천 여부 판단은 오직 다음 정보만 근거로 한다.
-  1) 품목명
-  2) 분류명
-  3) 이 약의 효능은 무엇입니까?
-- 사용법, 주의사항, 이상반응, 보관법 정보는 추천 여부 판단에는 사용하지 않는다.
+[역할]
+- 두통, 감기, 소화, 피로, 비타민, 약 복용법, 부작용, 음식·약 상호작용 등 일상적인 의료·건강 질문에 쉽고 짧게 답합니다.
+- 한국어로만 답변합니다.
+- 일반적으로 알려진 상식 수준의 정보를 바탕으로 안내합니다.
 
-[규칙 2: 부가 정보 출력]
-- 추천 결과를 출력할 때, 아래 정보가 존재한다면 간략히 요약해 함께 제공한다.
-  - 이 약을 사용하기 전에 반드시 알아야 할 내용
-  - 이 약의 사용상 주의사항
-  - 이 약을 사용하는 동안 주의해야 할 약 또는 음식
-- 각 항목은 1~2문장으로 요약한다.
-- 정보가 비어 있거나 없는 항목은 출력하지 않는다.
-
-[규칙 3: 안전]
-- 진단, 처방, 복용량 결정은 하지 않는다.
-- 모든 답변은 정보 제공 목적임을 유지한다.
-
-항상 JSON 형식으로만 출력한다. 예시: {"추천의약품":[{"품목명":"...","분류명":"...","효능요약":"...","사용전확인":"...","사용상주의사항":"...","약물음식주의":"..."}],"안내":"본 정보는 참고용이며 반드시 의사나 약사와 상담하세요."}`;
+[규칙]
+- 진단, 처방, 복용량 결정은 하지 않습니다.
+- "본 정보는 참고용이며, 반드시 의사나 약사와 상담하세요" 또는 이와 같은 의미의 문구를 답변 끝에 꼭 포함합니다.
+- 답변은 자연스러운 문장으로, 2~5문장 정도로 간결하게 작성합니다. 필요 시 불렛 포인트를 쓸 수 있습니다.`;
 
 async function callGroq(messages) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -83,25 +68,15 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const userMsg = messages.filter(m => m.role === 'user').pop();
-    const userText = userMsg?.content || '';
-    const hits = searchMedicine(userText, 15);
-    const contextText = formatForContext(hits);
-
-    const dataSection = contextText
-      ? `\n\n[의약품 허가정보 데이터]\n${contextText}\n\n위 데이터만 사용하여 사용자 질문에 맞는 의약품을 추천하고, 규칙에 따라 JSON으로 출력하세요.`
-      : '';
-    const systemContent = BASE_SYSTEM + dataSection;
-
     const enhancedMessages = messages
       .filter(m => m.role !== 'system')
       .reduce((acc, m) => {
-        if (acc.length === 0) acc.push({ role: 'system', content: systemContent });
+        if (acc.length === 0) acc.push({ role: 'system', content: SYSTEM_PROMPT });
         acc.push(m);
         return acc;
       }, []);
     if (enhancedMessages[0]?.role !== 'system') {
-      enhancedMessages.unshift({ role: 'system', content: systemContent });
+      enhancedMessages.unshift({ role: 'system', content: SYSTEM_PROMPT });
     }
 
     const reply = await callGroq(enhancedMessages);
