@@ -521,6 +521,11 @@ identifyPillBtn.addEventListener('click', async () => {
   }
 });
 
+function closePillPopover() {
+  const popover = document.getElementById('pillPopover');
+  if (popover) popover.hidden = true;
+}
+
 function showPillPopover(indexStr) {
   const matches = pillResults._pillMatches;
   if (!matches || !Array.isArray(matches)) return;
@@ -537,8 +542,34 @@ function showPillPopover(indexStr) {
     <div class="pill-popover-image-wrap">
       <img class="pill-popover-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(p.name || '')}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
     </div>
+    <h2 class="pill-popover-title">${escapeHtml(p.name || '-')}</h2>
+    <dl class="pill-popover-dl">
+      ${(p.ingredient && p.ingredient !== '-') ? `<dt>성분</dt><dd>${escapeHtml(p.ingredient)}</dd>` : ''}
+      ${(p.type && p.type.trim()) ? `<dt>구분</dt><dd>${escapeHtml(p.type)}</dd>` : ''}
+      ${(p.shape_kr && p.shape_kr.trim()) ? `<dt>모양</dt><dd>${escapeHtml(p.shape_kr)}</dd>` : ''}
+      ${(p.color_kr && p.color_kr.trim()) ? `<dt>색상</dt><dd>${escapeHtml(p.color_kr)}</dd>` : ''}
+      ${(p.imprint && p.imprint.trim()) ? `<dt>각인</dt><dd>${escapeHtml(p.imprint)}</dd>` : ''}
+      ${sizeInfo ? `<dt>크기</dt><dd>${escapeHtml(sizeInfo)} mm</dd>` : ''}
+      ${(p.form_code_name && p.form_code_name.trim()) ? `<dt>제형</dt><dd>${escapeHtml(p.form_code_name)}</dd>` : ''}
+      ${(p.entp_name && p.entp_name.trim()) ? `<dt>업체명</dt><dd>${escapeHtml(p.entp_name)}</dd>` : ''}
+    </dl>
   `;
+  const popover = document.getElementById('pillPopover');
+  if (popover) popover.hidden = false;
 }
+
+(function initPillPopoverClose() {
+  const closeBtn = document.getElementById('pillPopoverClose');
+  const backdrop = document.getElementById('pillPopoverBackdrop');
+  if (closeBtn) closeBtn.addEventListener('click', closePillPopover);
+  if (backdrop) backdrop.addEventListener('click', closePillPopover);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const popover = document.getElementById('pillPopover');
+      if (popover && !popover.hidden) closePillPopover();
+    }
+  });
+})();
 
 // My Medications
 const medicationInput = document.getElementById('medicationInput');
@@ -1080,3 +1111,202 @@ function initPharmacy() {
   });
 }
 initPharmacy();
+
+// ========== 복약수첩 ==========
+const NOTEBOOK_KEY = 'medicine_notebook';
+let notebookData = {
+  name: '', birth: '', blood: '', emergency: '',
+  conditions: '', allergy: '', pregnancy: '',
+  medications: [],
+  notes: ''
+};
+
+function loadNotebook() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(NOTEBOOK_KEY) || '{}');
+    notebookData = {
+      name: saved.name || '',
+      birth: saved.birth || '',
+      blood: saved.blood || '',
+      emergency: saved.emergency || '',
+      conditions: saved.conditions || '',
+      allergy: saved.allergy || '',
+      pregnancy: saved.pregnancy || '',
+      medications: Array.isArray(saved.medications) ? saved.medications : [],
+      notes: saved.notes || ''
+    };
+  } catch (_) {}
+}
+
+function saveNotebook() {
+  localStorage.setItem(NOTEBOOK_KEY, JSON.stringify(notebookData));
+}
+
+function getNotebookFormData() {
+  return {
+    name: (document.getElementById('notebookName')?.value || '').trim(),
+    birth: (document.getElementById('notebookBirth')?.value || '').trim(),
+    blood: (document.getElementById('notebookBlood')?.value || '').trim(),
+    emergency: (document.getElementById('notebookEmergency')?.value || '').trim(),
+    conditions: (document.getElementById('notebookConditions')?.value || '').trim(),
+    allergy: (document.getElementById('notebookAllergy')?.value || '').trim(),
+    pregnancy: (document.getElementById('notebookPregnancy')?.value || '').trim(),
+    medications: notebookData.medications,
+    notes: (document.getElementById('notebookNotes')?.value || '').trim()
+  };
+}
+
+function setNotebookFormData(data) {
+  const d = data || notebookData;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  set('notebookName', d.name);
+  set('notebookBirth', d.birth);
+  set('notebookBlood', d.blood);
+  set('notebookEmergency', d.emergency);
+  set('notebookConditions', d.conditions);
+  set('notebookAllergy', d.allergy);
+  set('notebookPregnancy', d.pregnancy);
+  set('notebookNotes', d.notes);
+}
+
+function renderNotebookMedList() {
+  const listEl = document.getElementById('notebookMedList');
+  if (!listEl) return;
+  if (notebookData.medications.length === 0) {
+    listEl.innerHTML = '<p class="notebook-med-empty">등록된 약이 없습니다.</p>';
+    return;
+  }
+  listEl.innerHTML = notebookData.medications.map((m, i) => `
+    <div class="notebook-med-item">
+      <span class="notebook-med-name">${(m.name || '').replace(/</g, '&lt;')}</span>
+      ${(m.dosage || '') ? `<span class="notebook-med-dosage">${(m.dosage || '').replace(/</g, '&lt;')}</span>` : ''}
+      <button type="button" class="notebook-med-remove" data-i="${i}">×</button>
+    </div>
+  `).join('');
+  listEl.querySelectorAll('.notebook-med-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      notebookData.medications.splice(parseInt(btn.dataset.i), 1);
+      renderNotebookMedList();
+    });
+  });
+}
+
+function notebookToViewerUrl(data) {
+  const d = data || getNotebookFormData();
+  const payload = JSON.stringify({
+    name: d.name, birth: d.birth, blood: d.blood, emergency: d.emergency,
+    conditions: d.conditions, allergy: d.allergy, pregnancy: d.pregnancy,
+    medications: d.medications || [],
+    notes: d.notes,
+    updatedAt: new Date().toISOString()
+  });
+  const base64 = btoa(unescape(encodeURIComponent(payload))).replace(/\+/g, '-').replace(/\//g, '_');
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  return base + 'notebook-view.html#' + base64;
+}
+
+function initNotebook() {
+  loadNotebook();
+  const nameEl = document.getElementById('notebookName');
+  const syncProfileBtn = document.getElementById('notebookSyncProfile');
+  const syncMedsBtn = document.getElementById('notebookSyncMeds');
+  const medInput = document.getElementById('notebookMedInput');
+  const medDosage = document.getElementById('notebookMedDosage');
+  const addMedBtn = document.getElementById('notebookAddMed');
+  const saveBtn = document.getElementById('notebookSaveBtn');
+  const qrBtn = document.getElementById('notebookQrBtn');
+  const qrSection = document.getElementById('notebookQrSection');
+  const qrWrap = document.getElementById('notebookQrWrap');
+  const qrDownloadBtn = document.getElementById('notebookQrDownload');
+  const qrPreviewBtn = document.getElementById('notebookQrPreview');
+
+  if (!nameEl) return;
+
+  setNotebookFormData();
+  renderNotebookMedList();
+
+  addMedBtn?.addEventListener('click', () => {
+    const name = (medInput?.value || '').trim();
+    if (!name) return;
+    const dosage = (medDosage?.value || '').trim();
+    notebookData.medications.push({ name, dosage });
+    renderNotebookMedList();
+    if (medInput) medInput.value = '';
+    if (medDosage) medDosage.value = '';
+  });
+
+  saveBtn?.addEventListener('click', () => {
+    notebookData = { ...notebookData, ...getNotebookFormData() };
+    saveNotebook();
+    alert('복약수첩이 저장되었습니다.');
+  });
+
+  qrBtn?.addEventListener('click', async () => {
+    notebookData = { ...notebookData, ...getNotebookFormData() };
+    saveNotebook();
+    const viewerUrl = notebookToViewerUrl(notebookData);
+    qrWrap.innerHTML = '<p class="loading">QR 코드 생성 중...</p>';
+    qrSection?.classList.remove('hidden');
+    const showQr = () => {
+      const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + encodeURIComponent(viewerUrl);
+      const img = document.createElement('img');
+      img.src = apiUrl;
+      img.alt = '복약수첩 QR코드';
+      img.onerror = () => { qrWrap.innerHTML = '<p class="warning">QR 코드 생성에 실패했습니다. 네트워크를 확인해 주세요.</p>'; };
+      qrWrap.innerHTML = '';
+      qrWrap.appendChild(img);
+    };
+    try {
+      if (typeof QRCode !== 'undefined') {
+        qrWrap.innerHTML = '';
+        new QRCode(qrWrap, { text: viewerUrl, width: 256, height: 256 });
+        if (!qrWrap.querySelector('canvas') && !qrWrap.querySelector('img')) showQr();
+      } else {
+        showQr();
+      }
+    } catch (e) {
+      showQr();
+    }
+  });
+
+  qrPreviewBtn?.addEventListener('click', () => {
+    const viewerUrl = notebookToViewerUrl(notebookData);
+    window.open(viewerUrl, '_blank');
+  });
+
+  qrDownloadBtn?.addEventListener('click', async () => {
+    const canvas = qrWrap.querySelector('canvas');
+    const img = qrWrap.querySelector('img');
+    let dataUrl = '';
+    if (canvas) dataUrl = canvas.toDataURL('image/png');
+    else if (img?.src && img.src.startsWith('data:')) dataUrl = img.src;
+    if (dataUrl) {
+      const link = document.createElement('a');
+      link.download = '복약수첩-QR코드.png';
+      link.href = dataUrl;
+      link.click();
+    } else {
+      const viewerUrl = notebookToViewerUrl(notebookData);
+      const apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + encodeURIComponent(viewerUrl);
+      try {
+        const res = await fetch(apiUrl);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = '복약수첩-QR코드.png';
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (_) {
+        window.open(apiUrl, '_blank');
+      }
+    }
+  });
+
+  document.querySelector('[data-view="notebook"]')?.addEventListener('click', () => {
+    loadNotebook();
+    setNotebookFormData();
+    renderNotebookMedList();
+  });
+}
+initNotebook();

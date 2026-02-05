@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>복약수첩 | 의약품 정보</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; background: #f5f5f5; padding: 1rem; color: #333; }
+    .pdf-page { max-width: 210mm; margin: 0 auto; background: #fff; padding: 20mm; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .pdf-title { font-size: 1.5rem; font-weight: 700; color: #059669; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid #059669; }
+    .pdf-section { margin-bottom: 1.25rem; }
+    .pdf-section h3 { font-size: 0.95rem; color: #059669; margin-bottom: 0.5rem; }
+    .pdf-row { display: flex; gap: 1rem; margin-bottom: 0.4rem; font-size: 0.9rem; }
+    .pdf-label { font-weight: 600; min-width: 100px; color: #555; }
+    .pdf-value { flex: 1; }
+    .pdf-med-list { list-style: none; }
+    .pdf-med-item { padding: 0.4rem 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    .pdf-med-item:last-child { border-bottom: none; }
+    .pdf-notes { font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+    .pdf-footer { margin-top: 1.5rem; font-size: 0.8rem; color: #888; }
+    .no-print { margin-top: 1rem; text-align: center; }
+    .btn-print { padding: 0.6rem 1.5rem; background: #059669; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    .btn-print:hover { background: #047857; }
+    .pdf-error { padding: 2rem; text-align: center; color: #dc3545; }
+    .pdf-error-hint { font-size: 0.85rem; color: #666; margin-top: 0.5rem; }
+    .hidden { display: none !important; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .pdf-page { box-shadow: none; padding: 15mm; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="pdf-page" id="pdfContent">
+    <div class="pdf-error hidden" id="errorMsg">
+      <p>복약수첩 데이터를 불러올 수 없습니다.</p>
+      <p class="pdf-error-hint">· 같은 컴퓨터에서 테스트: 앱에서 QR 생성 후 아래 "미리보기"로 열어보세요.</p>
+      <p class="pdf-error-hint">· 휴대폰에서 보려면 localhost가 아닌 배포된 주소에서 QR을 생성해야 합니다.</p>
+    </div>
+    <div id="notebookBody"></div>
+  </div>
+  <div class="no-print">
+    <button class="btn-print" id="printBtn">🖨️ PDF로 저장 / 인쇄</button>
+  </div>
+  <script>
+    function decodeHash() {
+      let hash = location.hash.slice(1).trim();
+      if (!hash) return null;
+      try {
+        hash = hash.replace(/-/g, '+').replace(/_/g, '/');
+        var padding = hash.length % 4;
+        if (padding) hash += '='.repeat(4 - padding);
+        const binary = atob(hash);
+        const bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const decoder = new TextDecoder('utf-8');
+        const json = decoder.decode(bytes);
+        return JSON.parse(json);
+      } catch (e) { console.error('복약수첩 해시 디코딩 오류:', e); return null; }
+    }
+    function render(d) {
+      const body = document.getElementById('notebookBody');
+      const err = document.getElementById('errorMsg');
+      if (!body) return;
+      if (!d || (!d.name && !d.medications?.length && !d.notes && !d.conditions && !d.allergy)) {
+        err.classList.remove('hidden');
+        body.innerHTML = '';
+        return;
+      }
+      err.classList.add('hidden');
+      body.innerHTML = `
+        <h1 class="pdf-title">복약수첩</h1>
+        <div class="pdf-section">
+          <h3>환자 정보</h3>
+          <div class="pdf-row"><span class="pdf-label">이름</span><span class="pdf-value">${(d.name || '-').replace(/</g, '&lt;')}</span></div>
+          <div class="pdf-row"><span class="pdf-label">생년월일</span><span class="pdf-value">${(d.birth || '-').replace(/</g, '&lt;')}</span></div>
+          <div class="pdf-row"><span class="pdf-label">혈액형</span><span class="pdf-value">${(d.blood || '-').replace(/</g, '&lt;')}</span></div>
+          <div class="pdf-row"><span class="pdf-label">비상연락처</span><span class="pdf-value">${(d.emergency || '-').replace(/</g, '&lt;')}</span></div>
+        </div>
+        <div class="pdf-section">
+          <h3>건강 정보</h3>
+          <div class="pdf-row"><span class="pdf-label">기저질환</span><span class="pdf-value">${(d.conditions || '-').replace(/</g, '&lt;')}</span></div>
+          <div class="pdf-row"><span class="pdf-label">알레르기</span><span class="pdf-value">${(d.allergy || '-').replace(/</g, '&lt;')}</span></div>
+          <div class="pdf-row"><span class="pdf-label">임신/수유</span><span class="pdf-value">${(d.pregnancy || '-').replace(/</g, '&lt;')}</span></div>
+        </div>
+        <div class="pdf-section">
+          <h3>복용 약 목록</h3>
+          <ul class="pdf-med-list">
+            ${(d.medications || []).map(m => `<li class="pdf-med-item">${(m.name || '-').replace(/</g, '&lt;')}${m.dosage ? ' — ' + (m.dosage || '').replace(/</g, '&lt;') : ''}</li>`).join('')}
+          </ul>
+          ${!(d.medications || []).length ? '<p class="pdf-value">-</p>' : ''}
+        </div>
+        <div class="pdf-section">
+          <h3>비고</h3>
+          <p class="pdf-notes">${(d.notes || '-').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>
+        </div>
+        <div class="pdf-footer">작성일: ${d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('ko-KR') : new Date().toLocaleDateString('ko-KR')} · 의약품 정보</div>
+      `;
+    }
+    const data = decodeHash();
+    render(data);
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+  </script>
+</body>
+</html>

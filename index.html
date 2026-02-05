@@ -16,8 +16,8 @@
         <button class="nav-btn active" data-view="search">검색</button>
         <button class="nav-btn" data-view="interaction">상호작용</button>
         <button class="nav-btn" data-view="pill">알약 식별</button>
-        <button class="nav-btn" data-view="medications">내 복용약</button>
         <button class="nav-btn" data-view="pharmacy">근처 약국</button>
+        <button class="nav-btn" data-view="notebook">복약수첩</button>
       </nav>
     </header>
 
@@ -150,10 +150,90 @@
         </div>
       </section>
 
+      <!-- 복약수첩 뷰 -->
+      <section class="view view-notebook hidden" id="viewNotebook">
+        <h2>복약수첩</h2>
+        <p class="subtitle">환자 정보와 복용약을 정리해 QR 코드로 만들어 보관·공유할 수 있습니다 (응급 시 활용)</p>
+        <div class="notebook-form">
+          <div class="notebook-section">
+            <h3>환자 정보</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label>이름</label>
+                <input type="text" id="notebookName" placeholder="환자 이름">
+              </div>
+              <div class="form-group">
+                <label>생년월일</label>
+                <input type="text" id="notebookBirth" placeholder="예: 1990-01-15">
+              </div>
+              <div class="form-group">
+                <label>혈액형</label>
+                <select id="notebookBlood">
+                  <option value="">선택</option>
+                  <option value="A형">A형</option>
+                  <option value="B형">B형</option>
+                  <option value="O형">O형</option>
+                  <option value="AB형">AB형</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>비상연락처</label>
+              <input type="text" id="notebookEmergency" placeholder="예: 010-1234-5678 (보호자)">
+            </div>
+          </div>
+          <div class="notebook-section">
+            <h3>건강 정보</h3>
+            <div class="form-group">
+              <label>기저 질환</label>
+              <input type="text" id="notebookConditions" placeholder="예: 당뇨, 고혈압 (쉼표 구분)">
+            </div>
+            <div class="form-group">
+              <label>알레르기</label>
+              <input type="text" id="notebookAllergy" placeholder="예: 페니실린, 아스피린">
+            </div>
+            <div class="form-group">
+              <label>임신·수유</label>
+              <select id="notebookPregnancy">
+                <option value="">해당 없음</option>
+                <option value="임신">임신 중</option>
+                <option value="수유">수유 중</option>
+              </select>
+            </div>
+          </div>
+          <div class="notebook-section">
+            <h3>복용 약 목록</h3>
+            <div class="notebook-med-list" id="notebookMedList"></div>
+            <div class="form-group notebook-add-med">
+              <input type="text" id="notebookMedInput" placeholder="의약품명 추가">
+              <input type="text" id="notebookMedDosage" placeholder="복용법 (예: 1일 3회 식후)">
+              <button type="button" class="btn btn-primary btn-sm" id="notebookAddMed">추가</button>
+            </div>
+          </div>
+          <div class="notebook-section">
+            <h3>비고</h3>
+            <textarea id="notebookNotes" rows="3" placeholder="기타 참고사항 (수술 이력, 주의사항 등)"></textarea>
+          </div>
+          <div class="notebook-actions">
+            <button class="btn btn-primary" id="notebookSaveBtn">저장</button>
+            <button class="btn btn-primary" id="notebookQrBtn">QR 코드 생성</button>
+          </div>
+        </div>
+        <div class="notebook-qr-section hidden" id="notebookQrSection">
+          <h3>복약수첩 QR 코드</h3>
+          <p class="notebook-qr-hint">QR 코드를 스캔하면 복약수첩이 PDF 스타일로 표시됩니다. 인쇄 버튼으로 PDF 저장이 가능합니다.</p>
+          <div class="notebook-qr-wrap" id="notebookQrWrap"></div>
+          <div class="notebook-qr-actions">
+            <button class="btn btn-secondary" id="notebookQrDownload">이미지로 저장</button>
+            <button class="btn btn-secondary" id="notebookQrPreview">미리보기 (새 탭)</button>
+          </div>
+        </div>
+      </section>
+
       <!-- 근처 약국 뷰 -->
       <section class="view view-pharmacy hidden" id="viewPharmacy">
-        <h2>근처 약국 (심야운영약국)</h2>
-        <p class="subtitle">전국 심야운영약국 680곳을 검색할 수 있습니다. 지역 선택 또는 약국명으로 검색하세요.</p>
+        <h2>근처 약국</h2>
+        <p class="subtitle">전국 운영약국을 검색할 수 있습니다. 지역 선택 또는 약국명으로 검색하세요.</p>
         <p class="pharmacy-source">데이터: <a href="https://www.e-gen.or.kr/egen/search_pharmacy.do" target="_blank" rel="noopener">E-GEN(국립중앙의료원)</a> · 대한약사회 제공</p>
         <div class="pharmacy-form">
           <div class="form-row">
@@ -215,6 +295,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
   <script src="data.js"></script>
   <script src="night-pharmacy-data.js"></script>
   <script>if(typeof NIGHT_PHARMACY==='undefined'){window.NIGHT_PHARMACY=[];}</script>
