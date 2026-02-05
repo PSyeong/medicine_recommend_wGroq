@@ -1,6 +1,9 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/", "destination": "/index.html" }
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "redirects": [
+    { "source": "/", "destination": "/index.html", "permanent": false }
   ]
 }
