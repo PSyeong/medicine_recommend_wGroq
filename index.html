@@ -177,9 +177,6 @@
           </div>
           <button class="btn btn-primary" id="searchPharmacyBtn">약국 검색</button>
         </div>
-        <div class="pharmacy-egen-links">
-          <a href="https://www.e-gen.or.kr/egen/search_pharmacy.do?searchType=map" target="_blank" rel="noopener" class="btn btn-secondary">🗺️ E-GEN 지도에서 약국 찾기</a>
-        </div>
         <div class="pharmacy-results" id="pharmacyResults"></div>
       </section>
     </main>
@@ -221,6 +218,8 @@
   <script src="data.js"></script>
   <script src="night-pharmacy-data.js"></script>
   <script>if(typeof NIGHT_PHARMACY==='undefined'){window.NIGHT_PHARMACY=[];}</script>
+  <script src="pharmacy-data.js"></script>
+  <script>if(typeof PHARMACY_DATA==='undefined'){window.PHARMACY_DATA=[];}</script>
   <script src="app.js"></script>
 </body>
 </html>

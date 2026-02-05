@@ -1,5 +1,12 @@
 const API_BASE = ''; // Vercel 배포 시 같은 도메인, 로컬 시 상대경로 사용
 
+// 국립중앙의료원 전국 약국 정보 조회 API (공공데이터포털)
+const PHARMACY_API = 'https://apis.data.go.kr/B552657/ErmctInsttInfoInqireService/getParmacyListInfoInqire';
+const CORS_PROXIES = [
+  (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)
+];
+
 // DOM
 const views = document.querySelectorAll('.view');
 const navBtns = document.querySelectorAll('.nav-btn');
@@ -530,37 +537,8 @@ function showPillPopover(indexStr) {
     <div class="pill-popover-image-wrap">
       <img class="pill-popover-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(p.name || '')}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
     </div>
-    <h3 class="pill-popover-title">${escapeHtml(p.name || '-')}</h3>
-    <dl class="pill-popover-dl">
-      <dt>분류(성분)</dt><dd>${escapeHtml(p.ingredient || '-')}</dd>
-      <dt>제조사</dt><dd>${escapeHtml(p.entp_name || '-')}</dd>
-      <dt>구분</dt><dd>${escapeHtml(p.type || '-')}</dd>
-      <dt>모양</dt><dd>${escapeHtml(p.shape_kr || '-')}</dd>
-      <dt>색상</dt><dd>${escapeHtml(p.color_kr || '-')}</dd>
-      <dt>각인(앞/뒤)</dt><dd>${escapeHtml(p.imprint || '-')}</dd>
-      ${p.form_code_name ? `<dt>제형</dt><dd>${escapeHtml(p.form_code_name)}</dd>` : ''}
-      ${sizeInfo ? `<dt>크기(mm)</dt><dd>${escapeHtml(sizeInfo)}</dd>` : ''}
-      ${p.item_permit_date ? `<dt>허가일</dt><dd>${escapeHtml(p.item_permit_date)}</dd>` : ''}
-    </dl>
   `;
-  const popover = document.getElementById('pillPopover');
-  popover.hidden = false;
-  document.body.style.overflow = 'hidden';
 }
-
-function hidePillPopover() {
-  const popover = document.getElementById('pillPopover');
-  popover.hidden = true;
-  document.body.style.overflow = '';
-}
-
-document.getElementById('pillPopoverClose')?.addEventListener('click', hidePillPopover);
-document.getElementById('pillPopoverBackdrop')?.addEventListener('click', hidePillPopover);
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && document.getElementById('pillPopover') && !document.getElementById('pillPopover').hidden) {
-    hidePillPopover();
-  }
-});
 
 // My Medications
 const medicationInput = document.getElementById('medicationInput');
@@ -767,6 +745,83 @@ function matchPharmacyName(name, query) {
   return words.every(w => n.indexOf(w) >= 0);
 }
 
+// 공공데이터 약국 API 응답의 요일별 영업시간 포맷 (dutyTime1s~8c)
+const DAY_LABELS_PHARMACY = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일', 8: '공휴일' };
+function formatAllPharmacyHours(item) {
+  const parts = [];
+  for (let d = 1; d <= 8; d++) {
+    const s = item[`dutyTime${d}s`] || item[`dutyTime${d}S`] || item[`dutytime${d}s`];
+    const c = item[`dutyTime${d}c`] || item[`dutyTime${d}C`] || item[`dutytime${d}c`];
+    if (s || c) {
+      const start = (s || '').replace(/^(\d{2})(\d{2})$/, '$1:$2') || '-';
+      const end = (c || '').replace(/^(\d{2})(\d{2})$/, '$1:$2') || '-';
+      parts.push(DAY_LABELS_PHARMACY[d] + ': ' + start + '~' + end);
+    }
+  }
+  return parts.length ? parts.join(' | ') : '영업시간 정보 없음';
+}
+
+async function fetchPharmacyList(params) {
+  const pharmacyKey = (typeof DATA_GO_KR_PHARMACY_API_KEY !== 'undefined' && DATA_GO_KR_PHARMACY_API_KEY) ? DATA_GO_KR_PHARMACY_API_KEY.trim() : '';
+  const commonKey = (typeof DATA_GO_KR_API_KEY !== 'undefined' && DATA_GO_KR_API_KEY) ? DATA_GO_KR_API_KEY.trim() : '';
+  const apiKey = pharmacyKey || commonKey;
+  if (!apiKey) return { items: [], total: 0, error: 'API_KEY_REQUIRED' };
+  const q = new URLSearchParams({
+    serviceKey: apiKey,
+    pageNo: String(params.pageNo || 1),
+    numOfRows: String(params.numOfRows || 20)
+  });
+  if (params.Q0) q.set('Q0', params.Q0);
+  if (params.Q1) q.set('Q1', params.Q1);
+  if (params.QN) q.set('QN', params.QN);
+  if (params.QT) q.set('QT', params.QT);
+  const url = PHARMACY_API + '?' + q.toString();
+  const tryFetch = async (targetUrl) => {
+    const res = await fetch(targetUrl);
+    if (!res.ok) throw new Error(res.statusText);
+    const text = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/xml');
+    const err = doc.querySelector('OpenAPI_ServiceResponse cmmMsgHeader errMsg, OpenAPI_ServiceResponse errMsg, error errMsg');
+    if (err && err.textContent && err.textContent.trim()) throw new Error(err.textContent.trim());
+    const items = [];
+    const list = doc.querySelectorAll('item');
+    list.forEach(node => {
+      const o = {};
+      node.childNodes.forEach(c => {
+        if (c.nodeType === 1) {
+          const k = c.nodeName;
+          const v = (c.textContent || '').trim();
+          o[k] = v;
+          o[k.toLowerCase()] = v;
+        }
+      });
+      items.push(o);
+    });
+    const total = doc.querySelector('totalCount');
+    return { items, total: total ? parseInt(total.textContent, 10) || items.length : items.length };
+  };
+  try {
+    return await tryFetch(url);
+  } catch (e) {
+    for (const toProxyUrl of CORS_PROXIES) {
+      try {
+        return await tryFetch(toProxyUrl(url));
+      } catch (_) { continue; }
+    }
+    return { items: [], total: 0, error: e.message || '약국 정보를 불러오지 못했습니다.' };
+  }
+}
+
+function filterPharmacyData(Q0, Q1, QN) {
+  if (typeof PHARMACY_DATA === 'undefined' || !Array.isArray(PHARMACY_DATA)) return [];
+  let list = PHARMACY_DATA;
+  if (Q0) list = list.filter(p => (p.dutyAddr || '').indexOf(Q0) >= 0);
+  if (Q1) list = list.filter(p => (p.dutyAddr || '').indexOf(Q1) >= 0);
+  if (QN) list = list.filter(p => matchPharmacyName(p.dutyName, QN));
+  return list;
+}
+
 function filterNightPharmacies(Q0, Q1, QN) {
   if (typeof NIGHT_PHARMACY === 'undefined' || !Array.isArray(NIGHT_PHARMACY)) return [];
   let list = NIGHT_PHARMACY;
@@ -776,7 +831,7 @@ function filterNightPharmacies(Q0, Q1, QN) {
   return list;
 }
 
-function getPharmacyNameSuggestions(q, Q0, Q1) {
+function getPharmacyNameSuggestions(q, Q0, Q1, mode) {
   const qTrim = (q || '').trim().toLowerCase();
   if (!qTrim || qTrim.length < 1) return [];
   const words = qTrim.split(/\s+/).filter(Boolean);
@@ -784,11 +839,23 @@ function getPharmacyNameSuggestions(q, Q0, Q1) {
     const n = (name || '').toLowerCase();
     return words.every(w => n.indexOf(w) >= 0);
   }
-  let list = typeof NIGHT_PHARMACY !== 'undefined' && Array.isArray(NIGHT_PHARMACY) ? NIGHT_PHARMACY : [];
-  if (Q0) list = list.filter(p => (p.addr || '').indexOf(Q0) >= 0 || (p.addr2 || '').indexOf(Q0) >= 0);
-  if (Q1) list = list.filter(p => (p.addr || '').indexOf(Q1) >= 0 || (p.addr2 || '').indexOf(Q1) >= 0);
-  list = list.filter(p => matches(p.name));
-  return [...new Set(list.map(p => p.name))].slice(0, 12);
+  const m = mode || (document.querySelector('input[name="pharmacyMode"]:checked')?.value || 'night');
+  if (m === 'night' && typeof NIGHT_PHARMACY !== 'undefined' && Array.isArray(NIGHT_PHARMACY)) {
+    let list = NIGHT_PHARMACY;
+    if (Q0) list = list.filter(p => (p.addr || '').indexOf(Q0) >= 0 || (p.addr2 || '').indexOf(Q0) >= 0);
+    if (Q1) list = list.filter(p => (p.addr || '').indexOf(Q1) >= 0 || (p.addr2 || '').indexOf(Q1) >= 0);
+    list = list.filter(p => matches(p.name));
+    return [...new Set(list.map(p => p.name))].slice(0, 12);
+  }
+  const hasEmbedded = typeof PHARMACY_DATA !== 'undefined' && Array.isArray(PHARMACY_DATA) && PHARMACY_DATA.length > 0;
+  if (hasEmbedded) {
+    let list = PHARMACY_DATA;
+    if (Q0) list = list.filter(p => (p.dutyAddr || '').indexOf(Q0) >= 0);
+    if (Q1) list = list.filter(p => (p.dutyAddr || '').indexOf(Q1) >= 0);
+    list = list.filter(p => matches(p.dutyName));
+    return [...new Set(list.map(p => p.dutyName))].slice(0, 12);
+  }
+  return [];
 }
 
 function initPharmacy() {
@@ -799,6 +866,18 @@ function initPharmacy() {
   const pharmacyNameInput = document.getElementById('pharmacyName');
   const pharmacyNameSuggestions = document.getElementById('pharmacyNameSuggestions');
   if (!sidoSelect || !sigugunSelect || !searchBtn || !resultsEl) return;
+
+  const hasEmbeddedData = typeof PHARMACY_DATA !== 'undefined' && Array.isArray(PHARMACY_DATA) && PHARMACY_DATA.length > 0;
+  const pharmacyKey = (typeof DATA_GO_KR_PHARMACY_API_KEY !== 'undefined' && DATA_GO_KR_PHARMACY_API_KEY) ? DATA_GO_KR_PHARMACY_API_KEY.trim() : '';
+  const commonKey = (typeof DATA_GO_KR_API_KEY !== 'undefined' && DATA_GO_KR_API_KEY) ? DATA_GO_KR_API_KEY.trim() : '';
+  const hasApiKey = !!(pharmacyKey || commonKey);
+  const apiNotice = document.getElementById('pharmacyApiNotice');
+  if (!hasEmbeddedData && !hasApiKey && apiNotice) apiNotice.classList.remove('hidden');
+  else if (apiNotice) apiNotice.classList.add('hidden');
+  if (!hasEmbeddedData && !hasApiKey) {
+    const nightRadio = document.querySelector('input[name="pharmacyMode"][value="night"]');
+    if (nightRadio) nightRadio.checked = true;
+  }
 
   if (typeof SIDO_SIGUGUN !== 'undefined') {
     Object.keys(SIDO_SIGUGUN).forEach(sido => {
@@ -865,19 +944,21 @@ function initPharmacy() {
       const q = pharmacyNameInput.value.trim();
       const Q0 = sidoSelect.value.trim();
       const Q1 = sigugunSelect.value.trim();
+      const mode = document.querySelector('input[name="pharmacyMode"]:checked')?.value || 'api';
       if (!q || q.length < 1) {
         pharmacyNameSuggestions.classList.remove('visible');
         pharmacyNameSuggestions.innerHTML = '';
         return;
       }
       pharmacySuggestTimeout = setTimeout(() => {
-        showPharmacySuggestions(getPharmacyNameSuggestions(q, Q0, Q1));
+        showPharmacySuggestions(getPharmacyNameSuggestions(q, Q0, Q1, mode));
       }, 150);
     });
     pharmacyNameInput.addEventListener('focus', () => {
       const q = pharmacyNameInput.value.trim();
       if (q && q.length >= 1) {
-        showPharmacySuggestions(getPharmacyNameSuggestions(q, sidoSelect.value.trim(), sigugunSelect.value.trim()));
+        const mode = document.querySelector('input[name="pharmacyMode"]:checked')?.value || 'api';
+        showPharmacySuggestions(getPharmacyNameSuggestions(q, sidoSelect.value.trim(), sigugunSelect.value.trim(), mode));
       } else {
         pharmacyNameSuggestions.classList.remove('visible');
       }
@@ -886,36 +967,108 @@ function initPharmacy() {
     pharmacyNameInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') pharmacyNameSuggestions.classList.remove('visible'); });
   }
 
-  searchBtn.addEventListener('click', () => {
+  searchBtn.addEventListener('click', async () => {
     const Q0 = sidoSelect.value.trim();
     const Q1 = sigugunSelect.value.trim();
     const QN = pharmacyNameInput?.value.trim() || '';
+    const mode = document.querySelector('input[name="pharmacyMode"]:checked')?.value || 'api';
 
     if (!Q0 && !QN) {
-      resultsEl.innerHTML = '<p class="pharmacy-empty">시·도를 선택하거나 약국명을 입력해 주세요. (예: 365, 강남, 24시)</p>';
+      resultsEl.innerHTML = '<p class="pharmacy-empty">시·도를 선택하거나 약국명을 입력해 주세요.</p>';
       return;
     }
 
-    let items = filterNightPharmacies(Q0, Q1, QN);
-    let usedFallback = false;
-    if (items.length === 0 && (Q0 || Q1)) {
-      items = filterNightPharmacies('', '', QN);
-      usedFallback = items.length > 0;
-    }
-    if (items.length === 0) {
-      resultsEl.innerHTML = '<p class="pharmacy-empty">해당 조건에 맞는 심야운영약국이 없습니다.</p>';
+    if (mode === 'night') {
+      let items = filterNightPharmacies(Q0, Q1, QN);
+      let usedFallback = false;
+      if (items.length === 0 && (Q0 || Q1)) {
+        items = filterNightPharmacies('', '', QN);
+        usedFallback = items.length > 0;
+      }
+      if (items.length === 0) {
+        resultsEl.innerHTML = '<p class="pharmacy-empty">해당 지역에 심야운영약국이 없습니다.</p>';
+        return;
+      }
+      const cardsHtml = items.slice(0, 50).map((p, i) => {
+        const addr = ((p.addr || '') + ' ' + (p.addr2 || '')).trim() || '-';
+        const tel = (p.tel || '').trim() || '-';
+        const hours = formatNightPharmacyHours(p);
+        const mapUrl = getMapUrl(addr);
+        const mapEmbed = getMapEmbedHtml(addr);
+        return `
+          <div class="pharmacy-card pharmacy-card-night" data-i="${i}">
+            <h3 class="pharmacy-name">🌙 ${(p.name + '').replace(/</g, '&lt;')}</h3>
+            <p class="pharmacy-hours"><strong>영업시간</strong> ${(hours + '').replace(/</g, '&lt;')}</p>
+            <p class="pharmacy-addr">📍 ${(addr + '').replace(/</g, '&lt;')}</p>
+            ${mapEmbed ? `<div class="pharmacy-map-wrap">${mapEmbed}${mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener" class="pharmacy-map-link">🗺️ 크게 보기</a>` : ''}</div>` : ''}
+            ${tel !== '-' ? `<p class="pharmacy-tel">📞 <a href="tel:${tel.replace(/\D/g, '')}">${tel}</a></p>` : ''}
+          </div>
+        `;
+      }).join('');
+      const more = items.length > 50 ? `<p class="pharmacy-more">외 ${items.length - 50}곳 (상위 50곳만 표시)</p>` : '';
+      const fallbackNote = usedFallback ? '<p class="pharmacy-empty" style="padding:0.5rem 0;">※ 해당 지역에 주소가 등록된 약국이 없어, 약국명 검색 결과를 표시합니다.</p>' : '';
+      resultsEl.innerHTML = fallbackNote + cardsHtml + more + '<p class="pharmacy-source-note">심야운영약국 680곳 (E-GEN·대한약사회). 방문 전 전화 확인 권장.</p>';
       return;
     }
 
-    const cardsHtml = items.slice(0, 50).map((p) => {
-      const addr = ((p.addr || '') + ' ' + (p.addr2 || '')).trim() || '-';
-      const tel = (p.tel || '').trim() || '-';
-      const hours = formatNightPharmacyHours(p);
+    if (hasEmbeddedData) {
+      const embeddedItems = filterPharmacyData(Q0, Q1, QN);
+      if (embeddedItems.length > 0) {
+        const cardsHtml = embeddedItems.slice(0, 50).map((item, i) => {
+          const name = item.dutyName || '-';
+          const addr = item.dutyAddr || '-';
+          const tel = item.dutyTel1 || '-';
+          const hours = formatAllPharmacyHours(item);
+          const mapUrl = getMapUrl(addr);
+          const mapEmbed = getMapEmbedHtml(addr);
+          return `
+            <div class="pharmacy-card" data-i="${i}">
+              <h3 class="pharmacy-name">${(name + '').replace(/</g, '&lt;')}</h3>
+              <p class="pharmacy-hours"><strong>영업시간</strong> ${(hours + '').replace(/</g, '&lt;')}</p>
+              <p class="pharmacy-addr">📍 ${(addr + '').replace(/</g, '&lt;')}</p>
+              ${mapEmbed ? `<div class="pharmacy-map-wrap">${mapEmbed}${mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener" class="pharmacy-map-link">🗺️ 크게 보기</a>` : ''}</div>` : ''}
+              ${tel !== '-' ? `<p class="pharmacy-tel">📞 <a href="tel:${tel.replace(/\D/g, '')}">${tel}</a></p>` : ''}
+            </div>
+          `;
+        }).join('');
+        const more = embeddedItems.length > 50 ? `<p class="pharmacy-more">외 ${embeddedItems.length - 50}곳 (상위 50곳만 표시)</p>` : '';
+        resultsEl.innerHTML = cardsHtml + more + '<p class="pharmacy-source-note">전국 약국 ' + (PHARMACY_DATA ? PHARMACY_DATA.length.toLocaleString() : '') + '곳 (공공데이터). 방문 전 전화 확인 권장. · <a href="https://www.e-gen.or.kr/egen/search_pharmacy.do" target="_blank" rel="noopener">E-GEN 약국 찾기</a></p>';
+      } else {
+        resultsEl.innerHTML = '<p class="pharmacy-empty">해당 지역에 등록된 약국이 없습니다. 시·군·구를 바꾸거나 약국명으로 검색해 보세요.</p>';
+      }
+      return;
+    }
+
+    resultsEl.innerHTML = '<div class="loading">약국 정보를 검색 중...</div>';
+    const { items, total, error } = await fetchPharmacyList({ Q0, Q1, QN, numOfRows: 30 });
+    if (error) {
+      if (error === 'API_KEY_REQUIRED') {
+        resultsEl.innerHTML = `
+          <div class="pharmacy-api-error">
+            <p class="error">일반 약국 검색에는 공공데이터 API 키가 필요합니다.</p>
+            <p class="pharmacy-api-hint">🌙 <strong>심야운영약국(680곳)</strong>은 API 없이 바로 사용할 수 있습니다. 위에서 "심야운영약국"을 선택한 뒤 검색해 보세요.</p>
+            <p class="pharmacy-api-setup">공공데이터포털 <a href="https://www.data.go.kr" target="_blank" rel="noopener">data.go.kr</a>에서 "전국 약국 정보 조회" API 활용신청 후 인증키를 발급받아 설정하세요.</p>
+          </div>
+        `;
+      } else {
+        resultsEl.innerHTML = '<p class="error">' + (error || '').replace(/</g, '&lt;') + '</p>';
+      }
+      return;
+    }
+    if (!items || items.length === 0) {
+      resultsEl.innerHTML = '<p class="pharmacy-empty">해당 지역에 검색된 약국이 없습니다.</p>';
+      return;
+    }
+    const cardsHtml = items.map((item, i) => {
+      const name = item.dutyName || item.dutyname || item.DUTYNAME || '-';
+      const addr = item.dutyAddr || item.dutyaddr || item.DUTYADDR || '-';
+      const tel = item.dutyTel1 || item.dutytel1 || item.DUTYTEL1 || '-';
+      const hours = formatAllPharmacyHours(item);
       const mapUrl = getMapUrl(addr);
       const mapEmbed = getMapEmbedHtml(addr);
       return `
-        <div class="pharmacy-card pharmacy-card-night">
-          <h3 class="pharmacy-name">🌙 ${(p.name + '').replace(/</g, '&lt;')}</h3>
+        <div class="pharmacy-card" data-i="${i}">
+          <h3 class="pharmacy-name">${(name + '').replace(/</g, '&lt;')}</h3>
           <p class="pharmacy-hours"><strong>영업시간</strong> ${(hours + '').replace(/</g, '&lt;')}</p>
           <p class="pharmacy-addr">📍 ${(addr + '').replace(/</g, '&lt;')}</p>
           ${mapEmbed ? `<div class="pharmacy-map-wrap">${mapEmbed}${mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener" class="pharmacy-map-link">🗺️ 크게 보기</a>` : ''}</div>` : ''}
@@ -923,9 +1076,7 @@ function initPharmacy() {
         </div>
       `;
     }).join('');
-    const more = items.length > 50 ? `<p class="pharmacy-more">외 ${items.length - 50}곳 (상위 50곳만 표시)</p>` : '';
-    const fallbackNote = usedFallback ? '<p class="pharmacy-empty" style="padding:0.5rem 0;">※ 해당 지역에 주소가 등록된 약국이 없어, 약국명 검색 결과를 표시합니다.</p>' : '';
-    resultsEl.innerHTML = fallbackNote + cardsHtml + more + '<p class="pharmacy-source-note">심야운영약국 (E-GEN·대한약사회). 방문 전 전화 확인 권장.</p>';
+    resultsEl.innerHTML = cardsHtml + '<p class="pharmacy-source-note">운영시간 변동 가능. 방문 전 약국에 전화 확인 권장. · <a href="https://www.e-gen.or.kr/egen/search_pharmacy.do" target="_blank" rel="noopener">E-GEN 약국 찾기</a></p>';
   });
 }
 initPharmacy();

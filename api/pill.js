@@ -59,12 +59,20 @@ function matchesColor(apiColor, ourColor) {
   return krs.some(k => c.includes(k.toLowerCase().replace(/\s/g, '')));
 }
 
+function normalizeForImprint(s) {
+  return (s || '').toString().replace(/[\s\-\.\_]/g, '').toUpperCase();
+}
+
 function matchesImprint(apiPrint, imprint) {
   if (!imprint || !imprint.trim()) return true;
-  const front = (apiPrint?.print_front || '').toUpperCase();
-  const back = (apiPrint?.print_back || '').toUpperCase();
   const search = imprint.trim().toUpperCase();
-  return front.includes(search) || back.includes(search) || search.includes(front) || search.includes(back);
+  const searchNorm = normalizeForImprint(imprint);
+  const front = (apiPrint?.print_front || '').toString();
+  const back = (apiPrint?.print_back || '').toString();
+  const frontNorm = normalizeForImprint(front);
+  const backNorm = normalizeForImprint(back);
+  return front.toUpperCase().includes(search) || back.toUpperCase().includes(search)
+    || frontNorm.includes(searchNorm) || backNorm.includes(searchNorm);
 }
 
 module.exports = async (req, res) => {
@@ -148,13 +156,15 @@ module.exports = async (req, res) => {
         const color2 = raw.COLOR_CLASS2 || raw.color_class2 || '';
         const colorClass = [color1, color2].filter(Boolean).join(' ') || raw.COLOR_CLASS || raw.color_class || '';
         const itemImage = raw.ITEM_IMAGE || raw.item_image || raw.itemImage || '';
+        const pf = raw.PRINT_FRONT || raw.print_front || raw.printFront || raw.MARK_CODE_FRONT || raw.mark_code_front || '';
+        const pb = raw.PRINT_BACK || raw.print_back || raw.printBack || raw.MARK_CODE_BACK || raw.mark_code_back || '';
         return {
           item_name: raw.ITEM_NAME || raw.item_name || raw.itemName || '-',
           material_name: raw.CLASS_NAME || raw.class_name || raw.MATERIAL_NAME || raw.material_name || '-',
           drug_shape: raw.DRUG_SHAPE || raw.drug_shape || raw.drugShape || '',
           color_class: colorClass,
-          print_front: raw.PRINT_FRONT || raw.print_front || raw.printFront || '',
-          print_back: raw.PRINT_BACK || raw.print_back || raw.printBack || '',
+          print_front: pf,
+          print_back: pb,
           etc_otc_name: raw.ETC_OTC_NAME || raw.etc_otc_name || raw.etcOtcName || '',
           item_image: (itemImage && (itemImage.startsWith('http://') || itemImage.startsWith('https://'))) ? itemImage : '',
           entp_name: raw.ENTP_NAME || raw.entp_name || '',
@@ -177,11 +187,12 @@ module.exports = async (req, res) => {
       allItems.push(...filtered);
 
       const total = body.totalCount ?? 0;
+      const maxPages = imprint ? 30 : 10;
       if (items.length < numOfRows || allItems.length >= 15) {
         hasMore = false;
       } else {
         pageNo++;
-        if (pageNo > 10) hasMore = false;
+        if (pageNo > maxPages) hasMore = false;
       }
     }
 
