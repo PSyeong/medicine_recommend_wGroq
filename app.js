@@ -43,6 +43,10 @@ function getRouteFromState() {
 }
 
 function applyView(viewName) {
+  // 라우트 전환 시 알약 식별 팝오버 닫기 (뒤로가기 시에도 사라지도록)
+  const pillPopover = document.getElementById('pillPopover');
+  if (pillPopover && !pillPopover.hidden) pillPopover.hidden = true;
+
   const viewId = VIEW_ID_MAP[viewName];
   if (!viewId) return;
   navBtns.forEach(b => {
