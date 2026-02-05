@@ -3,15 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-93C63GS5FF"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-93C63GS5FF');
-  </script>
-  <title>To-doc 의약품 정보 | Medicine Info</title>
+  <title>의약품 정보 | Medicine Info</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -19,12 +11,13 @@
 <body>
   <div class="app">
     <header class="header">
-      <h1 class="logo">💊 To-doc 의약품 정보</h1>
+      <h1 class="logo">💊 의약품 정보</h1>
       <nav class="nav">
         <button class="nav-btn active" data-view="search">검색</button>
         <button class="nav-btn" data-view="interaction">상호작용</button>
         <button class="nav-btn" data-view="pill">알약 식별</button>
         <button class="nav-btn" data-view="medications">내 복용약</button>
+        <button class="nav-btn" data-view="pharmacy">근처 약국</button>
       </nav>
     </header>
 
@@ -54,9 +47,12 @@
             <div class="icon-symptoms" id="iconSymptoms"></div>
           </div>
           <div class="search-panel">
-            <div class="search-box">
-              <input type="text" id="searchInput" placeholder="예: 소화불량, 열이 나요" autocomplete="off">
-              <button class="btn btn-primary" id="searchBtn">🔍 검색</button>
+            <div class="search-box-wrap">
+              <div class="search-box">
+                <input type="text" id="searchInput" placeholder="품목명, 분류(해열제·진해거담제 등), 성분명 검색" autocomplete="off">
+                <button class="btn btn-primary" id="searchBtn">검색</button>
+              </div>
+              <div class="autocomplete-dropdown" id="autocompleteDropdown" hidden></div>
             </div>
             <p class="search-hint">왼쪽 그림을 클릭하거나 증상을 입력하세요.</p>
             <div class="symptom-search">
@@ -153,6 +149,39 @@
           <button class="btn btn-secondary" id="checkMyInteractionsBtn">상호작용 검사</button>
         </div>
       </section>
+
+      <!-- 근처 약국 뷰 -->
+      <section class="view view-pharmacy hidden" id="viewPharmacy">
+        <h2>근처 약국 (심야운영약국)</h2>
+        <p class="subtitle">전국 심야운영약국 680곳을 검색할 수 있습니다. 지역 선택 또는 약국명으로 검색하세요.</p>
+        <p class="pharmacy-source">데이터: <a href="https://www.e-gen.or.kr/egen/search_pharmacy.do" target="_blank" rel="noopener">E-GEN(국립중앙의료원)</a> · 대한약사회 제공</p>
+        <div class="pharmacy-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>시·도</label>
+              <select id="pharmacySido">
+                <option value="">선택</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>시·군·구</label>
+              <select id="pharmacySigugun">
+                <option value="">선택</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group pharmacy-name-wrapper" style="position:relative;">
+            <label>약국명 검색</label>
+            <input type="text" id="pharmacyName" placeholder="예: 삼성, 건강 (부분 일치 검색)" autocomplete="off">
+            <div class="pharmacy-name-suggestions" id="pharmacyNameSuggestions"></div>
+          </div>
+          <button class="btn btn-primary" id="searchPharmacyBtn">약국 검색</button>
+        </div>
+        <div class="pharmacy-egen-links">
+          <a href="https://www.e-gen.or.kr/egen/search_pharmacy.do?searchType=map" target="_blank" rel="noopener" class="btn btn-secondary">🗺️ E-GEN 지도에서 약국 찾기</a>
+        </div>
+        <div class="pharmacy-results" id="pharmacyResults"></div>
+      </section>
     </main>
 
     <footer class="footer">
@@ -181,6 +210,8 @@
   </div>
 
   <script src="data.js"></script>
+  <script src="night-pharmacy-data.js"></script>
+  <script>if(typeof NIGHT_PHARMACY==='undefined'){var NIGHT_PHARMACY=[];}</script>
   <script src="app.js"></script>
 </body>
 </html>

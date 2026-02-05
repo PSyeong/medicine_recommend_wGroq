@@ -10,6 +10,138 @@ const viewDetail = document.getElementById('viewDetail');
 const detailContent = document.getElementById('detailContent');
 const backBtn = document.getElementById('backBtn');
 
+// 카테고리별 증상 매핑 (증상별 검색)
+const CATEGORY_SYMPTOMS = {
+  '머리': ['두통', '발열'],
+  '가슴': ['기침', '가래', '천식'],
+  '배': ['복통', '속쓰림', '소화불량', '설사', '구토'],
+  '관절': ['관절통', '근육통', '몸살'],
+  '피부': ['염증', '피부염', '습진', '두드러기'],
+};
+
+const symptomRow = document.getElementById('symptomRow');
+const iconSymptoms = document.getElementById('iconSymptoms');
+const openedCategories = new Set();
+const selectedSymptoms = new Set();
+
+function getSymptomsByCategory(cat) {
+  return CATEGORY_SYMPTOMS[cat] || [];
+}
+
+function hasSelectedInCategory(cat) {
+  return getSymptomsByCategory(cat).some(s => selectedSymptoms.has(s));
+}
+
+function toggleCategory(cat) {
+  if (openedCategories.has(cat)) {
+    openedCategories.delete(cat);
+    getSymptomsByCategory(cat).forEach(s => selectedSymptoms.delete(s));
+  } else {
+    openedCategories.add(cat);
+  }
+}
+
+function updateCategoryHighlights() {
+  document.querySelectorAll('.category-btn').forEach(cb => {
+    const cat = cb.dataset.category;
+    cb.classList.toggle('active', openedCategories.has(cat) || hasSelectedInCategory(cat));
+  });
+  document.querySelectorAll('.body-part').forEach(part => {
+    const cats = part.dataset.categories ? part.dataset.categories.split(',') : [part.dataset.category];
+    const isActive = cats.some(c => openedCategories.has(c) || hasSelectedInCategory(c));
+    part.classList.toggle('active', !!isActive);
+  });
+}
+
+function clearSearchInputForSymptomMode() {
+  if (searchInput) searchInput.value = '';
+  const dd = document.getElementById('autocompleteDropdown');
+  if (dd) {
+    dd.hidden = true;
+    dd.innerHTML = '';
+  }
+}
+
+function bindSymptomClick(btn, s) {
+  btn.addEventListener('click', () => {
+    clearSearchInputForSymptomMode();
+    if (selectedSymptoms.has(s)) {
+      selectedSymptoms.delete(s);
+    } else {
+      selectedSymptoms.add(s);
+    }
+    renderSymptomButtons();
+    updateCategoryHighlights();
+    if (selectedSymptoms.size > 0) {
+      searchDrugs(Array.from(selectedSymptoms).join(' '));
+    } else {
+      searchResults.innerHTML = '';
+    }
+  });
+}
+
+function renderSymptomButtons() {
+  const allSymptoms = [];
+  openedCategories.forEach(cat => {
+    getSymptomsByCategory(cat).forEach(s => {
+      if (!allSymptoms.includes(s)) allSymptoms.push(s);
+    });
+  });
+  const buttonsHtml = allSymptoms.map(s => `
+    <button class="symptom-btn ${selectedSymptoms.has(s) ? 'active' : ''}" data-symptom="${s}">${s}</button>
+  `).join('');
+  if (allSymptoms.length === 0) {
+    symptomRow.innerHTML = '';
+    if (iconSymptoms) iconSymptoms.innerHTML = '';
+    updateCategoryHighlights();
+    return;
+  }
+  symptomRow.innerHTML = buttonsHtml;
+  if (iconSymptoms) iconSymptoms.innerHTML = buttonsHtml;
+  symptomRow.querySelectorAll('.symptom-btn').forEach(btn => {
+    bindSymptomClick(btn, btn.dataset.symptom);
+  });
+  iconSymptoms?.querySelectorAll('.symptom-btn').forEach(btn => {
+    bindSymptomClick(btn, btn.dataset.symptom);
+  });
+  updateCategoryHighlights();
+}
+
+document.querySelectorAll('.category-btn')?.forEach(btn => {
+  btn.addEventListener('click', () => {
+    searchInput.value = '';
+    toggleCategory(btn.dataset.category);
+    renderSymptomButtons();
+    if (selectedSymptoms.size > 0) {
+      searchDrugs(Array.from(selectedSymptoms).join(' '));
+    } else {
+      searchResults.innerHTML = '';
+    }
+  });
+});
+
+document.querySelectorAll('.body-part')?.forEach(part => {
+  part.addEventListener('click', () => {
+    clearSearchInputForSymptomMode();
+    const cats = (part.dataset.categories ? part.dataset.categories.split(',') : [part.dataset.category]).map(c => c.trim());
+    const anyOpen = cats.some(c => openedCategories.has(c));
+    if (anyOpen) {
+      cats.forEach(cat => {
+        openedCategories.delete(cat);
+        getSymptomsByCategory(cat).forEach(s => selectedSymptoms.delete(s));
+      });
+    } else {
+      cats.forEach(cat => openedCategories.add(cat));
+    }
+    renderSymptomButtons();
+    if (selectedSymptoms.size > 0) {
+      searchDrugs(Array.from(selectedSymptoms).join(' '));
+    } else {
+      searchResults.innerHTML = '';
+    }
+  });
+});
+
 // Navigation
 navBtns.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -27,106 +159,12 @@ navBtns.forEach(btn => {
   });
 });
 
-// 카테고리별 증상 매핑
-const CATEGORY_SYMPTOMS = {
-  '머리': ['두통', '발열'],
-  '가슴': ['기침', '가래'],
-  '배': ['복통', '속쓰림', '소화불량', '설사', '구토'],
-  '관절': ['관절통', '근육통', '몸살'],
-  '피부': ['염증', '피부염', '습진'],
-};
-
-const symptomRow = document.getElementById('symptomRow');
-const iconSymptoms = document.getElementById('iconSymptoms');
-const openedCategories = new Set();
-const selectedSymptoms = new Set();
-
-function getSymptomsByCategory(cat) {
-  return CATEGORY_SYMPTOMS[cat] || [];
-}
-
-function hasSelectedInCategory(cat) {
-  return getSymptomsByCategory(cat).some(s => selectedSymptoms.has(s));
-}
-
-function updateCategoryHighlights() {
-  document.querySelectorAll('.category-btn').forEach(btn => {
-    const cat = btn.dataset.category;
-    btn.classList.toggle('active', hasSelectedInCategory(cat));
-  });
-  document.querySelectorAll('.body-part').forEach(el => {
-    const cats = el.dataset.categories ? el.dataset.categories.split(',') : [el.dataset.category];
-    const active = cats.some(c => openedCategories.has(c) || hasSelectedInCategory(c));
-    el.classList.toggle('active', active);
-  });
-}
-
-function runSymptomSearch() {
-  const query = [...selectedSymptoms].join(' ');
-  searchInput.value = query;
-  if (query) searchDrugs(query);
-}
-
-function bindSymptomClick(container) {
-  if (!container) return;
-  container.querySelectorAll('.symptom-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const sym = btn.dataset.symptom;
-      if (selectedSymptoms.has(sym)) {
-        selectedSymptoms.delete(sym);
-      } else {
-        selectedSymptoms.add(sym);
-      }
-      btn.classList.toggle('active', selectedSymptoms.has(sym));
-      updateCategoryHighlights();
-      runSymptomSearch();
-    });
-  });
-}
-
-function renderSymptomButtons() {
-  const allSymptoms = [];
-  [...openedCategories].sort().forEach(cat => {
-    getSymptomsByCategory(cat).forEach(s => {
-      if (!allSymptoms.includes(s)) allSymptoms.push(s);
-    });
-  });
-  const html = allSymptoms.map(s => {
-    const active = selectedSymptoms.has(s) ? ' active' : '';
-    return `<button class="symptom-btn${active}" data-symptom="${escapeHtml(s)}">${escapeHtml(s)}</button>`;
-  }).join('');
-  symptomRow.innerHTML = html;
-  iconSymptoms.innerHTML = html;
-  bindSymptomClick(symptomRow);
-  bindSymptomClick(iconSymptoms);
-  updateCategoryHighlights();
-}
-
-function toggleCategory(cat) {
-  if (openedCategories.has(cat)) {
-    openedCategories.delete(cat);
-    getSymptomsByCategory(cat).forEach(s => selectedSymptoms.delete(s));
-  } else {
-    openedCategories.add(cat);
-  }
-  renderSymptomButtons();
-  runSymptomSearch();
-}
-
-document.querySelectorAll('.category-btn').forEach(btn => {
-  btn.addEventListener('click', () => toggleCategory(btn.dataset.category));
-});
-
-document.querySelectorAll('.body-part').forEach(el => {
-  el.addEventListener('click', () => {
-    const cats = el.dataset.categories ? el.dataset.categories.split(',') : [el.dataset.category];
-    cats.forEach(c => toggleCategory(c));
-  });
-});
-
 // Search - CSV 의약품 허가정보 기반
 async function searchDrugs(query) {
-  if (!query.trim()) return;
+  if (!query.trim()) {
+    searchResults.innerHTML = '';
+    return;
+  }
   searchResults.innerHTML = '<div class="loading">검색 중...</div>';
   try {
     const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query.trim())}`);
@@ -163,54 +201,48 @@ function getProductImage(drug) {
 }
 
 function renderSearchResults(results) {
-  const interactKey = '이 약을 사용하는 동안 주의해야 할 약 또는 음식은 무엇입니까?';
   searchResults.innerHTML = results.map((drug, i) => {
     const name = drug['품목명'] || '-';
     const cls = drug['분류명'] || '-';
     const ing = getIngredient(drug).substring(0, 80);
     const imgSrc = getProductImage(drug);
-    const interact = drug[interactKey] || '';
-    const hasInteract = interact.trim() && interact.trim() !== '-';
-    const interactLink = hasInteract
-      ? `<span class="interaction-link" data-id="${i}" role="button" tabindex="0">상호작용 확인</span>`
+    const interact = drug['이 약을 사용하는 동안 주의해야 할 약 또는 음식은 무엇입니까?'] || '';
+    const hasInteract = interact && interact.trim() !== '' && interact.trim() !== '-';
+    const interactHtml = hasInteract
+      ? ` <a href="#" class="interaction-link" data-id="${i}">상호작용 확인</a>`
+      : '';
+    const panelHtml = hasInteract
+      ? `<div class="interaction-panel" id="interaction-panel-${i}" hidden><h4 class="interaction-panel-title">이 약을 사용하는 동안 주의해야 할 약 또는 음식</h4><p class="interaction-panel-content">${escapeHtml(interact)}</p></div>`
       : '';
     return `
-      <div class="drug-card-wrap">
-        <div class="drug-card" data-id="${i}">
+      <div class="drug-card-wrap" data-id="${i}">
+        <div class="drug-card">
           <img class="drug-card-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
           <div class="drug-card-body">
-            <h3>${escapeHtml(name)} ${interactLink}</h3>
+            <h3>${escapeHtml(name)}${interactHtml}</h3>
             <p>분류: ${escapeHtml(cls)}</p>
             <p>주성분: ${escapeHtml(ing)}${getIngredient(drug).length > 80 ? '...' : ''}</p>
           </div>
         </div>
-        ${hasInteract ? `<div class="interaction-panel" id="interaction-panel-${i}" data-id="${i}" hidden><h4>이 약을 사용하는 동안 주의해야 할 약 또는 음식</h4><p>${escapeHtml(interact)}</p></div>` : ''}
+        ${panelHtml}
       </div>
     `;
   }).join('');
+
   document.querySelectorAll('.drug-card').forEach(card => {
-    card.addEventListener('click', () => showDetail(results[parseInt(card.dataset.id)]));
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.interaction-link')) return;
+      showDetail(results[parseInt(card.closest('.drug-card-wrap').dataset.id)]);
+    });
   });
   document.querySelectorAll('.interaction-link').forEach(link => {
     link.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      const id = link.dataset.id;
+      const wrap = link.closest('.drug-card-wrap');
+      const id = wrap.dataset.id;
       const panel = document.getElementById(`interaction-panel-${id}`);
-      if (panel) {
-        const isHidden = panel.hasAttribute('hidden');
-        document.querySelectorAll('.interaction-panel').forEach(p => p.setAttribute('hidden', ''));
-        document.querySelectorAll('.interaction-link').forEach(l => l.classList.remove('active'));
-        if (isHidden) {
-          panel.removeAttribute('hidden');
-          link.classList.add('active');
-        }
-      }
-    });
-    link.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        link.click();
-      }
+      if (panel) panel.hidden = !panel.hidden;
     });
   });
 }
@@ -236,7 +268,6 @@ function showDetail(drug) {
   const sideEffect = drug['이 약은 어떤 이상반응이 나타날 수 있습니까?'] || '';
   const storage = drug['이 약은 어떻게 보관해야 합니까?'] || '';
 
-  const imgSrc = getProductImage(drug);
   const sections = [
     { title: '기본 정보', items: [
       ['품목명', name],
@@ -255,6 +286,7 @@ function showDetail(drug) {
     ...(storage ? [{ title: '보관방법', text: storage }] : []),
   ];
 
+  const imgSrc = getProductImage(drug);
   detailContent.innerHTML = `<div class="detail-image-wrap"><img class="detail-product-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(name)}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}"></div>` + sections.map(s => {
     if (s.items) {
       return `<div class="detail-section"><h3>${s.title}</h3>${s.items.map(([k, v]) => v ? `<p><strong>${k}:</strong> ${escapeHtml(String(v))}</p>` : '').join('')}</div>`;
@@ -276,6 +308,76 @@ backBtn.addEventListener('click', () => {
 
 searchBtn.addEventListener('click', () => searchDrugs(searchInput.value));
 searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchDrugs(searchInput.value); });
+
+// 검색 자동완성 (품목명 기준)
+const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+let autocompleteTimeout = null;
+let autocompleteItems = [];
+
+function hideAutocomplete() {
+  if (autocompleteDropdown) {
+    autocompleteDropdown.hidden = true;
+    autocompleteDropdown.innerHTML = '';
+    autocompleteItems = [];
+  }
+}
+
+async function fetchAutocompleteSuggestions(q) {
+  if (!q.trim()) return [];
+  try {
+    const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(q.trim())}&limit=10`);
+    const results = await res.json();
+    if (!Array.isArray(results)) return [];
+    const names = [...new Set(results.map(r => r['품목명']).filter(Boolean))].slice(0, 8);
+    return names;
+  } catch {
+    return [];
+  }
+}
+
+function renderAutocomplete(items) {
+  if (!autocompleteDropdown || !items || items.length === 0) {
+    hideAutocomplete();
+    return;
+  }
+  autocompleteItems = items;
+  autocompleteDropdown.innerHTML = items.map(name => `
+    <div class="autocomplete-item" data-name="${escapeHtml(name)}">${escapeHtml(name)}</div>
+  `).join('');
+  autocompleteDropdown.hidden = false;
+  autocompleteDropdown.querySelectorAll('.autocomplete-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const name = el.dataset.name;
+      if (name) {
+        searchInput.value = name;
+        hideAutocomplete();
+        searchDrugs(name);
+      }
+    });
+  });
+}
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(autocompleteTimeout);
+  const q = searchInput.value;
+  if (!q.trim()) {
+    hideAutocomplete();
+    return;
+  }
+  autocompleteTimeout = setTimeout(async () => {
+    const names = await fetchAutocompleteSuggestions(q);
+    renderAutocomplete(names);
+  }, 250);
+});
+
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideAutocomplete();
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-box-wrap')) hideAutocomplete();
+});
 
 // Interaction Checker
 const interactionDrugInput = document.getElementById('interactionDrugInput');
@@ -559,3 +661,186 @@ async function handleChatSend() {
 
 chatSendBtn.addEventListener('click', handleChatSend);
 chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleChatSend(); });
+
+// ========== 근처 약국 (심야운영약국) ==========
+function formatNightPharmacyHours(p) {
+  const days = [
+    { k: 'mon', l: '월' }, { k: 'tue', l: '화' }, { k: 'wed', l: '수' }, { k: 'thu', l: '목' },
+    { k: 'fri', l: '금' }, { k: 'sat', l: '토' }, { k: 'sun', l: '일' }, { k: 'holiday', l: '공휴일' }
+  ];
+  const parts = days.map(d => {
+    const v = (p[d.k] || '').trim();
+    return v ? `${d.l}: ${v}` : null;
+  }).filter(Boolean);
+  return parts.length ? parts.join(' | ') : '영업시간 정보 없음';
+}
+
+function matchPharmacyName(name, query) {
+  if (!query || !name) return !query;
+  const words = query.trim().split(/\s+/).filter(Boolean).map(w => w.toLowerCase());
+  const n = (name || '').toLowerCase();
+  return words.every(w => n.indexOf(w) >= 0);
+}
+
+function filterNightPharmacies(Q0, Q1, QN) {
+  if (typeof NIGHT_PHARMACY === 'undefined' || !Array.isArray(NIGHT_PHARMACY)) return [];
+  let list = NIGHT_PHARMACY;
+  if (Q0) list = list.filter(p => (p.addr || '').indexOf(Q0) >= 0 || (p.addr2 || '').indexOf(Q0) >= 0);
+  if (Q1) list = list.filter(p => (p.addr || '').indexOf(Q1) >= 0 || (p.addr2 || '').indexOf(Q1) >= 0);
+  if (QN) list = list.filter(p => matchPharmacyName(p.name, QN));
+  return list;
+}
+
+function getPharmacyNameSuggestions(q, Q0, Q1) {
+  const qTrim = (q || '').trim().toLowerCase();
+  if (!qTrim || qTrim.length < 1) return [];
+  const words = qTrim.split(/\s+/).filter(Boolean);
+  function matches(name) {
+    const n = (name || '').toLowerCase();
+    return words.every(w => n.indexOf(w) >= 0);
+  }
+  let list = typeof NIGHT_PHARMACY !== 'undefined' && Array.isArray(NIGHT_PHARMACY) ? NIGHT_PHARMACY : [];
+  if (Q0) list = list.filter(p => (p.addr || '').indexOf(Q0) >= 0 || (p.addr2 || '').indexOf(Q0) >= 0);
+  if (Q1) list = list.filter(p => (p.addr || '').indexOf(Q1) >= 0 || (p.addr2 || '').indexOf(Q1) >= 0);
+  list = list.filter(p => matches(p.name));
+  return [...new Set(list.map(p => p.name))].slice(0, 12);
+}
+
+function initPharmacy() {
+  const sidoSelect = document.getElementById('pharmacySido');
+  const sigugunSelect = document.getElementById('pharmacySigugun');
+  const searchBtn = document.getElementById('searchPharmacyBtn');
+  const resultsEl = document.getElementById('pharmacyResults');
+  const pharmacyNameInput = document.getElementById('pharmacyName');
+  const pharmacyNameSuggestions = document.getElementById('pharmacyNameSuggestions');
+  if (!sidoSelect || !sigugunSelect || !searchBtn || !resultsEl) return;
+
+  if (typeof SIDO_SIGUGUN !== 'undefined') {
+    Object.keys(SIDO_SIGUGUN).forEach(sido => {
+      const opt = document.createElement('option');
+      opt.value = sido;
+      opt.textContent = sido;
+      sidoSelect.appendChild(opt);
+    });
+  }
+
+  sidoSelect.addEventListener('change', () => {
+    sigugunSelect.innerHTML = '<option value="">선택</option>';
+    const sigugunList = typeof SIDO_SIGUGUN !== 'undefined' ? SIDO_SIGUGUN[sidoSelect.value] : [];
+    if (sigugunList && sigugunList.length) {
+      sigugunList.forEach(sg => {
+        const opt = document.createElement('option');
+        opt.value = sg;
+        opt.textContent = sg;
+        sigugunSelect.appendChild(opt);
+      });
+    }
+  });
+
+  function getMapUrl(addr) {
+    const a = (addr || '').trim();
+    if (!a || a === '-') return null;
+    return 'https://www.google.com/maps?q=' + encodeURIComponent(a);
+  }
+  function getMapEmbedHtml(addr) {
+    const a = (addr || '').trim();
+    if (!a || a === '-') return '';
+    const q = encodeURIComponent(a);
+    return '<iframe class="pharmacy-map-embed" src="https://www.google.com/maps?q=' + q + '&output=embed" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>';
+  }
+
+  let pharmacySuggestTimeout = null;
+  function showPharmacySuggestions(items) {
+    if (!pharmacyNameSuggestions) return;
+    if (!items || items.length === 0) {
+      pharmacyNameSuggestions.classList.remove('visible');
+      pharmacyNameSuggestions.innerHTML = '';
+      return;
+    }
+    pharmacyNameSuggestions.innerHTML = items.map(name => `
+      <div class="suggestion-item" data-name="${(name || '').replace(/"/g, '&quot;')}">${(name || '-').replace(/</g, '&lt;')}</div>
+    `).join('');
+    pharmacyNameSuggestions.classList.add('visible');
+    pharmacyNameSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const name = el.dataset.name;
+        if (name && pharmacyNameInput) {
+          pharmacyNameInput.value = name;
+          pharmacyNameSuggestions.classList.remove('visible');
+          pharmacyNameSuggestions.innerHTML = '';
+        }
+      });
+    });
+  }
+
+  if (pharmacyNameInput && pharmacyNameSuggestions) {
+    pharmacyNameInput.addEventListener('input', () => {
+      clearTimeout(pharmacySuggestTimeout);
+      const q = pharmacyNameInput.value.trim();
+      const Q0 = sidoSelect.value.trim();
+      const Q1 = sigugunSelect.value.trim();
+      if (!q || q.length < 1) {
+        pharmacyNameSuggestions.classList.remove('visible');
+        pharmacyNameSuggestions.innerHTML = '';
+        return;
+      }
+      pharmacySuggestTimeout = setTimeout(() => {
+        showPharmacySuggestions(getPharmacyNameSuggestions(q, Q0, Q1));
+      }, 150);
+    });
+    pharmacyNameInput.addEventListener('focus', () => {
+      const q = pharmacyNameInput.value.trim();
+      if (q && q.length >= 1) {
+        showPharmacySuggestions(getPharmacyNameSuggestions(q, sidoSelect.value.trim(), sigugunSelect.value.trim()));
+      } else {
+        pharmacyNameSuggestions.classList.remove('visible');
+      }
+    });
+    pharmacyNameInput.addEventListener('blur', () => setTimeout(() => pharmacyNameSuggestions.classList.remove('visible'), 200));
+    pharmacyNameInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') pharmacyNameSuggestions.classList.remove('visible'); });
+  }
+
+  searchBtn.addEventListener('click', () => {
+    const Q0 = sidoSelect.value.trim();
+    const Q1 = sigugunSelect.value.trim();
+    const QN = pharmacyNameInput?.value.trim() || '';
+
+    if (!Q0 && !QN) {
+      resultsEl.innerHTML = '<p class="pharmacy-empty">시·도를 선택하거나 약국명을 입력해 주세요. (예: 365, 강남, 24시)</p>';
+      return;
+    }
+
+    let items = filterNightPharmacies(Q0, Q1, QN);
+    let usedFallback = false;
+    if (items.length === 0 && (Q0 || Q1)) {
+      items = filterNightPharmacies('', '', QN);
+      usedFallback = items.length > 0;
+    }
+    if (items.length === 0) {
+      resultsEl.innerHTML = '<p class="pharmacy-empty">해당 조건에 맞는 심야운영약국이 없습니다.</p>';
+      return;
+    }
+
+    const cardsHtml = items.slice(0, 50).map((p) => {
+      const addr = ((p.addr || '') + ' ' + (p.addr2 || '')).trim() || '-';
+      const tel = (p.tel || '').trim() || '-';
+      const hours = formatNightPharmacyHours(p);
+      const mapUrl = getMapUrl(addr);
+      const mapEmbed = getMapEmbedHtml(addr);
+      return `
+        <div class="pharmacy-card pharmacy-card-night">
+          <h3 class="pharmacy-name">🌙 ${(p.name + '').replace(/</g, '&lt;')}</h3>
+          <p class="pharmacy-hours"><strong>영업시간</strong> ${(hours + '').replace(/</g, '&lt;')}</p>
+          <p class="pharmacy-addr">📍 ${(addr + '').replace(/</g, '&lt;')}</p>
+          ${mapEmbed ? `<div class="pharmacy-map-wrap">${mapEmbed}${mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener" class="pharmacy-map-link">🗺️ 크게 보기</a>` : ''}</div>` : ''}
+          ${tel !== '-' ? `<p class="pharmacy-tel">📞 <a href="tel:${tel.replace(/\D/g, '')}">${tel}</a></p>` : ''}
+        </div>
+      `;
+    }).join('');
+    const more = items.length > 50 ? `<p class="pharmacy-more">외 ${items.length - 50}곳 (상위 50곳만 표시)</p>` : '';
+    const fallbackNote = usedFallback ? '<p class="pharmacy-empty" style="padding:0.5rem 0;">※ 해당 지역에 주소가 등록된 약국이 없어, 약국명 검색 결과를 표시합니다.</p>' : '';
+    resultsEl.innerHTML = fallbackNote + cardsHtml + more + '<p class="pharmacy-source-note">심야운영약국 (E-GEN·대한약사회). 방문 전 전화 확인 권장.</p>';
+  });
+}
+initPharmacy();

@@ -121,33 +121,29 @@ app.get('/api/search', (req, res) => {
   if (!q) {
     return res.json([]);
   }
-  const hits = searchMedicine(q, 30);
+  const limit = Math.min(parseInt(req.query.limit, 10) || 30, 50);
+  const hits = searchMedicine(q, limit);
   res.json(hits);
 });
 
-// MFDS 제품 이미지 프록시 (다운로드 대신 표시용)
 app.get('/api/image', async (req, res) => {
-  const rawUrl = req.query.url;
-  if (!rawUrl || typeof rawUrl !== 'string') {
-    return res.status(400).send('url 필요');
-  }
-  const url = rawUrl.trim();
-  if (!url.startsWith('https://nedrug.mfds.go.kr/') && !url.startsWith('http://nedrug.mfds.go.kr/')) {
-    return res.status(400).send('허용된 도메인만 가능');
+  const url = req.query.url;
+  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+    return res.status(400).json({ error: '유효한 URL이 필요합니다.' });
   }
   try {
-    const imgRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!imgRes.ok) {
-      return res.status(404).send('이미지를 찾을 수 없습니다');
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!r.ok) {
+      return res.status(r.status).send(r.statusText);
     }
-    const buffer = Buffer.from(await imgRes.arrayBuffer());
-    const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+    const contentType = r.headers.get('content-type') || 'image/png';
+    const buffer = await r.arrayBuffer();
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (err) {
     console.error('이미지 프록시 오류:', err.message);
-    res.status(502).send('이미지 로드 실패');
+    res.status(502).json({ error: '이미지를 불러올 수 없습니다.' });
   }
 });
 

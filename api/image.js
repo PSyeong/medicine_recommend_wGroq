@@ -1,27 +1,21 @@
 module.exports = async (req, res) => {
-  const rawUrl = req.query.url;
-  if (!rawUrl || typeof rawUrl !== 'string') {
-    res.status(400).send('url 필요');
-    return;
-  }
-  const url = rawUrl.trim();
-  if (!url.startsWith('https://nedrug.mfds.go.kr/') && !url.startsWith('http://nedrug.mfds.go.kr/')) {
-    res.status(400).send('허용된 도메인만 가능');
-    return;
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  const url = req.query.url;
+  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+    return res.status(400).json({ error: '유효한 URL이 필요합니다.' });
   }
   try {
-    const imgRes = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!imgRes.ok) {
-      res.status(404).send('이미지를 찾을 수 없습니다');
-      return;
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!r.ok) {
+      return res.status(r.status).send(r.statusText);
     }
-    const buffer = Buffer.from(await imgRes.arrayBuffer());
-    const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+    const contentType = r.headers.get('content-type') || 'image/png';
+    const buffer = await r.arrayBuffer();
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error('이미지 프록시 오류:', err.message);
-    res.status(502).send('이미지 로드 실패');
+    res.status(502).json({ error: '이미지를 불러올 수 없습니다.' });
   }
 };

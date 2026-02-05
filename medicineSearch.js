@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse/sync');
 
-const CSV_PATH = path.join(__dirname, 'medicine_data.csv');
+const CSV_PATH = path.join(__dirname, 'medicine_data_final_updated.csv');
 let medicineData = [];
 
 function loadCSV() {
@@ -32,13 +32,13 @@ function searchMedicine(query, limit = 15) {
     const 품목명 = (row['품목명'] || '').toLowerCase();
     const 분류명 = (row['분류명'] || '').toLowerCase();
     const 주성분 = (row[ingKey] || row['주성분'] || '').toLowerCase();
-    const 효능 = (row[effKey] || '').toLowerCase(); // 해열, 기침, 가래, 천식 등 증상
+    const 효능 = (row[effKey] || '').toLowerCase();
 
     let score = 0;
     for (const term of terms) {
       if (품목명.includes(term)) score += 4;
       if (분류명.includes(term)) score += 3;
-      if (효능.includes(term)) score += 3;  // 증상(효능)으로 검색
+      if (효능.includes(term)) score += 3;
       if (주성분.includes(term)) score += 1;
     }
     if (score > 0) {

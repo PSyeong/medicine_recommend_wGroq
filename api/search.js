@@ -9,6 +9,7 @@ module.exports = async (req, res) => {
   if (!q) {
     return res.json([]);
   }
-  const hits = searchMedicine(q, 30);
+  const limit = Math.min(parseInt(req.query.limit, 10) || 30, 50);
+  const hits = searchMedicine(q, limit);
   res.json(hits);
 };

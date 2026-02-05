@@ -65,86 +65,117 @@ body {
 
 .main { flex: 1; }
 
-.view { display: none; overflow-x: hidden; }
+.view { display: none; }
 .view.active { display: block; }
 .view.hidden { display: none !important; }
 
 .search-layout {
   display: flex;
   gap: 1.5rem;
-  flex-wrap: wrap;
+  align-items: flex-start;
 }
-
+@media (max-width: 640px) {
+  .search-layout { flex-direction: column; }
+}
 .icon-panel {
-  flex: 0 0 200px;
+  flex-shrink: 0;
+  width: 160px;
   background: var(--card);
   padding: 1rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
 }
-
 .icon-panel-title {
-  font-size: 1rem;
+  font-size: 0.95rem;
   margin-bottom: 0.25rem;
 }
-
 .icon-panel-hint {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
-
 .human-icon-wrap {
-  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
 }
-
 .human-icon {
-  width: 100%;
-  max-width: 140px;
-  height: auto;
-  color: #94a3b8;
-  display: block;
-  margin: 0 auto;
+  width: 80px;
+  height: 133px;
+  color: var(--text-muted);
 }
-
 .body-part {
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s, opacity 0.2s;
 }
-
-.body-part:hover,
+.body-part:hover {
+  color: var(--primary);
+  opacity: 0.9;
+}
 .body-part.active {
   color: var(--primary);
 }
-
 .icon-symptoms {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  min-height: 2rem;
 }
-
+.icon-symptoms .symptom-btn {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
 .search-panel {
   flex: 1;
-  min-width: 280px;
+  min-width: 0;
+}
+.search-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
 }
 
-.search-hint {
-  font-size: 0.9rem;
-  color: var(--text-muted);
+.search-box-wrap {
+  position: relative;
   margin-bottom: 1rem;
 }
 
 .search-box {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
 }
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 100;
+}
+
+.autocomplete-item {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: rgba(37,99,235,0.08); }
 
 .symptom-search {
   margin-bottom: 1rem;
 }
-
 .symptom-search .category-row,
 .symptom-search .symptom-row {
   display: flex;
@@ -153,64 +184,27 @@ body {
   gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
-
-.symptom-search .symptom-row {
-  min-height: 2.25rem;
-  padding-left: 0.25rem;
-}
-
+.symptom-search .symptom-row { margin-bottom: 0; }
 .symptom-label {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
   color: var(--text-muted);
   margin-right: 0.25rem;
 }
-
-.category-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border);
-  background: var(--card);
-  border-radius: var(--radius);
-  font-size: 0.9rem;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: 500;
-}
-
-.category-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(37, 99, 235, 0.06);
-}
-
-.category-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
-}
-
+.category-btn,
 .symptom-btn {
   padding: 0.4rem 0.75rem;
   border: 1px solid var(--border);
-  background: var(--card);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-family: inherit;
+  background: white;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
 }
-
-.symptom-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(37, 99, 235, 0.06);
-}
-
-.symptom-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
-}
+.category-btn:hover,
+.symptom-btn:hover { border-color: var(--primary); color: var(--primary); }
+.category-btn.active,
+.symptom-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
 
 .search-box input, .interaction-input input, .medication-input input, .pill-form input {
   flex: 1;
@@ -249,7 +243,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  overflow-x: hidden;
 }
 
 .drug-card {
@@ -289,40 +282,34 @@ body {
 }
 .drug-card .pill-meta { font-size: 0.85rem; color: var(--primary); }
 
-.drug-card.pill-card { flex-direction: column; }
-
 .drug-card-wrap { margin-bottom: 0.5rem; }
-.drug-card-wrap:last-child { margin-bottom: 0; }
-
 .interaction-link {
   font-size: 0.8rem;
   color: var(--primary);
-  cursor: pointer;
   margin-left: 0.5rem;
-  text-decoration: underline;
+  text-decoration: none;
 }
-.interaction-link:hover,
-.interaction-link.active { color: var(--primary-dark, #2563eb); }
-
+.interaction-link:hover { text-decoration: underline; }
 .interaction-panel {
   margin-top: 0.5rem;
-  margin-left: 0.25rem;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   background: var(--bg);
   border-radius: var(--radius);
   border-left: 3px solid var(--primary);
   font-size: 0.9rem;
-  line-height: 1.6;
+  line-height: 1.5;
+  color: var(--text);
 }
-.interaction-panel h4 {
+.interaction-panel-title {
   font-size: 0.95rem;
+  font-weight: bold;
   color: var(--primary);
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.25rem;
 }
-.interaction-panel p {
+.interaction-panel-content {
   margin: 0;
-  word-break: break-word;
-  overflow-wrap: break-word;
+  color: var(--text);
 }
 
 .detail-content {
@@ -359,13 +346,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.detail-section p {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  max-width: 100%;
-}
+.detail-section p { font-size: 0.95rem; line-height: 1.6; }
 
 .interaction-input, .medication-input { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
 
@@ -435,6 +416,98 @@ body {
 .interaction-result .success { color: var(--success); }
 
 .medication-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* 근처 약국 */
+.pharmacy-source { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; }
+.pharmacy-source a { color: var(--primary); text-decoration: none; }
+.pharmacy-source a:hover { text-decoration: underline; }
+.pharmacy-form {
+  background: var(--card);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+.pharmacy-form .form-row { margin-bottom: 1rem; }
+.pharmacy-form .form-group input[type="text"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+}
+.pharmacy-form .btn { margin-top: 0.5rem; }
+.pharmacy-name-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+}
+.pharmacy-name-suggestions.visible { display: block; }
+.pharmacy-name-suggestions .suggestion-item {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.pharmacy-name-suggestions .suggestion-item:last-child { border-bottom: none; }
+.pharmacy-name-suggestions .suggestion-item:hover { background: rgba(37,99,235,0.08); }
+.pharmacy-egen-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.pharmacy-results {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.pharmacy-card {
+  background: var(--card);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.pharmacy-card:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,0.1); }
+.pharmacy-name { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; }
+.pharmacy-addr, .pharmacy-tel, .pharmacy-hours {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.pharmacy-tel a { color: var(--primary); text-decoration: none; }
+.pharmacy-tel a:hover { text-decoration: underline; }
+.pharmacy-hours { font-size: 0.85rem; }
+.pharmacy-hours strong { color: var(--text); font-weight: 600; }
+.pharmacy-map-wrap { margin: 0.75rem 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.pharmacy-map-embed { width: 100%; height: 160px; border: none; display: block; }
+.pharmacy-map-link { display: inline-block; margin-top: 0.35rem; font-size: 0.85rem; color: var(--primary); text-decoration: none; }
+.pharmacy-map-link:hover { text-decoration: underline; }
+.pharmacy-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.pharmacy-more { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
+.pharmacy-source-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+.pharmacy-source-note a { color: var(--primary); text-decoration: none; }
+.pharmacy-source-note a:hover { text-decoration: underline; }
 
 h2 { font-size: 1.25rem; margin-bottom: 0.25rem; }
 .subtitle { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem; }
