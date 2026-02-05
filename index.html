@@ -209,9 +209,18 @@
     <button class="chatbot-toggle" id="chatbotToggle" aria-label="챗봇 열기">💬</button>
   </div>
 
+  <!-- 알약 상세 팝오버 (body 직계 - 항상 최상위) -->
+  <div class="pill-popover" id="pillPopover" hidden>
+    <div class="pill-popover-backdrop" id="pillPopoverBackdrop"></div>
+    <div class="pill-popover-content">
+      <button class="pill-popover-close" id="pillPopoverClose" type="button" aria-label="닫기">×</button>
+      <div id="pillPopoverBody"></div>
+    </div>
+  </div>
+
   <script src="data.js"></script>
   <script src="night-pharmacy-data.js"></script>
-  <script>if(typeof NIGHT_PHARMACY==='undefined'){var NIGHT_PHARMACY=[];}</script>
+  <script>if(typeof NIGHT_PHARMACY==='undefined'){window.NIGHT_PHARMACY=[];}</script>
   <script src="app.js"></script>
 </body>
 </html>

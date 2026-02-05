@@ -62,6 +62,13 @@ function clearSearchInputForSymptomMode() {
   }
 }
 
+function clearSymptomAndCategoryState() {
+  openedCategories.clear();
+  selectedSymptoms.clear();
+  renderSymptomButtons();
+  updateCategoryHighlights();
+}
+
 function bindSymptomClick(btn, s) {
   btn.addEventListener('click', () => {
     clearSearchInputForSymptomMode();
@@ -306,8 +313,16 @@ backBtn.addEventListener('click', () => {
   document.getElementById('viewSearch').classList.remove('hidden');
 });
 
-searchBtn.addEventListener('click', () => searchDrugs(searchInput.value));
-searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchDrugs(searchInput.value); });
+searchBtn.addEventListener('click', () => {
+  clearSymptomAndCategoryState();
+  searchDrugs(searchInput.value);
+});
+searchInput.addEventListener('keypress', e => {
+  if (e.key === 'Enter') {
+    clearSymptomAndCategoryState();
+    searchDrugs(searchInput.value);
+  }
+});
 
 // 검색 자동완성 (품목명 기준)
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
@@ -352,6 +367,7 @@ function renderAutocomplete(items) {
       if (name) {
         searchInput.value = name;
         hideAutocomplete();
+        clearSymptomAndCategoryState();
         searchDrugs(name);
       }
     });
@@ -448,33 +464,102 @@ const pillImprint = document.getElementById('pillImprint');
 const identifyPillBtn = document.getElementById('identifyPillBtn');
 const pillResults = document.getElementById('pillResults');
 
-identifyPillBtn.addEventListener('click', () => {
-  const shape = pillShape.value;
-  const color = pillColor.value;
-  const imprint = pillImprint.value.trim().toUpperCase();
+identifyPillBtn.addEventListener('click', async () => {
+  const shape = (pillShape.value || '').trim();
+  const color = (pillColor.value || '').trim();
+  const imprint = (pillImprint.value || '').trim();
   if (!shape && !color && !imprint) {
     pillResults.innerHTML = '<p class="warning">모양, 색상, 각인 중 하나 이상을 선택해 주세요.</p>';
     return;
   }
-  const matches = PILL_DATABASE.filter(p => {
-    const shapeMatch = !shape || p.shape === shape;
-    const colorMatch = !color || p.color === color;
-    const imprintMatch = !imprint || p.imprint.toUpperCase().includes(imprint) || imprint.includes(p.imprint.toUpperCase());
-    return shapeMatch && colorMatch && imprintMatch;
-  });
-  const shapeLabels = { round: '원형', oval: '타원형', capsule: '캡슐형', rectangle: '사각형', diamond: '다이아몬드', hexagon: '육각형', octagon: '팔각형', triangle: '삼각형' };
-  const colorLabels = { white: '흰색', yellow: '노란색', orange: '주황색', red: '빨간색', pink: '분홍색', blue: '파란색', green: '초록색', brown: '갈색', gray: '회색' };
-  if (matches.length === 0) {
-    pillResults.innerHTML = '<p class="warning">검색 조건에 맞는 알약이 없습니다. 조건을 완화하거나 다른 각인을 입력해 보세요.</p>';
-    return;
+  pillResults.innerHTML = '<div class="loading">공공데이터 API에서 알약 정보를 조회 중...</div>';
+  try {
+    const params = new URLSearchParams();
+    if (shape) params.set('shape', shape);
+    if (color) params.set('color', color);
+    if (imprint) params.set('imprint', imprint);
+    const res = await fetch(`${API_BASE}/api/pill?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) {
+      pillResults.innerHTML = `<p class="error">${data.error || '알약 조회에 실패했습니다.'} (.env에 DATA_GO_KR_KEY 설정 및 공공데이터포털 활용신청을 확인하세요.)</p>`;
+      return;
+    }
+    const matches = Array.isArray(data) ? data : [];
+    if (matches.length === 0) {
+      pillResults.innerHTML = '<p class="warning">검색 조건에 맞는 알약이 없습니다. 조건을 완화하거나 다른 각인을 입력해 보세요.</p>';
+      return;
+    }
+    pillResults._pillMatches = matches;
+    pillResults.innerHTML = matches.map((p, i) => {
+      const imgUrl = (p.image && (p.image.startsWith('http://') || p.image.startsWith('https://')))
+        ? (p.image.includes('nedrug.mfds.go.kr') ? `${API_BASE || ''}/api/image?url=${encodeURIComponent(p.image)}` : p.image)
+        : '';
+      const imgSrc = imgUrl || DEFAULT_IMAGE;
+      return `
+      <div class="drug-card pill-card pill-card-clickable" data-pill-index="${i}">
+        <img class="drug-card-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(p.name || '')}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
+        <div class="drug-card-body">
+          <h3>${escapeHtml(p.name || '-')}</h3>
+          <p>성분: ${escapeHtml(p.ingredient || '-')}${p.type ? ' | ' + escapeHtml(p.type) : ''}</p>
+          <p class="pill-meta">모양: ${escapeHtml(p.shape_kr || '-')} / 색: ${escapeHtml(p.color_kr || '-')} / 각인: ${escapeHtml(p.imprint || '-')}</p>
+        </div>
+      </div>
+    `;
+    }).join('');
+    pillResults.querySelectorAll('.pill-card-clickable').forEach(card => {
+      card.addEventListener('click', () => showPillPopover(card.dataset.pillIndex));
+    });
+  } catch (err) {
+    pillResults.innerHTML = `<p class="error">알약 조회 실패: ${err.message}. 서버가 실행 중인지 확인하세요.</p>`;
   }
-  pillResults.innerHTML = matches.map(p => `
-    <div class="drug-card pill-card">
-      <h3>${p.name}</h3>
-      <p>성분: ${p.ingredient} | ${p.strength}</p>
-      <p class="pill-meta">모양: ${shapeLabels[p.shape] || p.shape} / 색: ${colorLabels[p.color] || p.color} / 각인: ${p.imprint}</p>
+});
+
+function showPillPopover(indexStr) {
+  const matches = pillResults._pillMatches;
+  if (!matches || !Array.isArray(matches)) return;
+  const i = parseInt(indexStr, 10);
+  const p = matches[i];
+  if (!p) return;
+  const imgUrl = (p.image && (p.image.startsWith('http://') || p.image.startsWith('https://')))
+    ? (p.image.includes('nedrug.mfds.go.kr') ? `${API_BASE || ''}/api/image?url=${encodeURIComponent(p.image)}` : p.image)
+    : '';
+  const imgSrc = imgUrl || DEFAULT_IMAGE;
+  const sizeInfo = [p.leng_long, p.leng_short, p.thick].filter(Boolean).join(' × ');
+  const body = document.getElementById('pillPopoverBody');
+  body.innerHTML = `
+    <div class="pill-popover-image-wrap">
+      <img class="pill-popover-img" src="${safeAttr(imgSrc)}" alt="${escapeHtml(p.name || '')}" onerror="this.src=this.dataset.fb" data-fb="${safeAttr(DEFAULT_IMAGE)}">
     </div>
-  `).join('');
+    <h3 class="pill-popover-title">${escapeHtml(p.name || '-')}</h3>
+    <dl class="pill-popover-dl">
+      <dt>분류(성분)</dt><dd>${escapeHtml(p.ingredient || '-')}</dd>
+      <dt>제조사</dt><dd>${escapeHtml(p.entp_name || '-')}</dd>
+      <dt>구분</dt><dd>${escapeHtml(p.type || '-')}</dd>
+      <dt>모양</dt><dd>${escapeHtml(p.shape_kr || '-')}</dd>
+      <dt>색상</dt><dd>${escapeHtml(p.color_kr || '-')}</dd>
+      <dt>각인(앞/뒤)</dt><dd>${escapeHtml(p.imprint || '-')}</dd>
+      ${p.form_code_name ? `<dt>제형</dt><dd>${escapeHtml(p.form_code_name)}</dd>` : ''}
+      ${sizeInfo ? `<dt>크기(mm)</dt><dd>${escapeHtml(sizeInfo)}</dd>` : ''}
+      ${p.item_permit_date ? `<dt>허가일</dt><dd>${escapeHtml(p.item_permit_date)}</dd>` : ''}
+    </dl>
+  `;
+  const popover = document.getElementById('pillPopover');
+  popover.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function hidePillPopover() {
+  const popover = document.getElementById('pillPopover');
+  popover.hidden = true;
+  document.body.style.overflow = '';
+}
+
+document.getElementById('pillPopoverClose')?.addEventListener('click', hidePillPopover);
+document.getElementById('pillPopoverBackdrop')?.addEventListener('click', hidePillPopover);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('pillPopover') && !document.getElementById('pillPopover').hidden) {
+    hidePillPopover();
+  }
 });
 
 // My Medications

@@ -126,6 +126,9 @@ app.get('/api/search', (req, res) => {
   res.json(hits);
 });
 
+const pillHandler = require('./api/pill');
+app.get('/api/pill', pillHandler);
+
 app.get('/api/image', async (req, res) => {
   const url = req.query.url;
   if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
@@ -153,5 +156,10 @@ app.listen(PORT, () => {
     console.log('⚠️ GROQ_API_KEY가 없습니다. .env 파일을 확인해 주세요. 챗봇은 기본 응답만 사용합니다.');
   } else {
     console.log('✅ Groq API 연결됨');
+  }
+  if (!process.env.DATA_GO_KR_KEY) {
+    console.log('⚠️ DATA_GO_KR_KEY가 없습니다. 알약 식별 기능이 동작하지 않습니다. 공공데이터포털에서 활용신청 후 .env에 추가하세요.');
+  } else {
+    console.log('✅ 공공데이터 API(알약 식별) 연결됨');
   }
 });
